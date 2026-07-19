@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VENTY Panel — controllo BLE</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d0e10">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0e10; --panel:#17181c; --panel2:#1e2025; --line:#2a2d33;
+  --txt:#e8e6e1; --dim:#8b8e95;
+  --heat:#ff6a13; --heat-soft:#ff8a45; --boost:#ffb01f; --sboost:#ff3b3b;
+  --ok:#37d67a; --chg:#3ecbff;
+  --font-ui:'Chakra Petch',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--txt);font-family:var(--font-ui);min-height:100%}
+body{padding:20px;max-width:1150px;margin:0 auto}
+
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand h1{font-size:26px;font-weight:700;letter-spacing:.14em}
+.brand h1 em{color:var(--heat);font-style:normal}
+.brand .sub{color:var(--dim);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.conn{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.dot{width:9px;height:9px;border-radius:50%;background:#555}
+.dot.on{background:var(--ok);box-shadow:0 0 10px var(--ok)}
+.dot.demo{background:var(--chg);box-shadow:0 0 10px var(--chg)}
+#connState{font-size:13px;color:var(--dim);min-width:100px;text-align:right}
+button{font-family:var(--font-ui);cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--txt);
+  border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;letter-spacing:.04em;transition:all .15s}
+button:hover{border-color:var(--heat);color:var(--heat-soft)}
+button:disabled{opacity:.35;cursor:not-allowed}
+button.primary{background:var(--heat);border-color:var(--heat);color:#100c08}
+button.primary:hover{background:var(--heat-soft);color:#100c08}
+button:focus-visible{outline:2px solid var(--heat);outline-offset:2px}
+.chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);cursor:pointer}
+
+#diag{display:none;background:#2a1414;border:1px solid var(--sboost);border-radius:12px;
+  padding:12px 16px;margin-bottom:16px;font-size:13px;line-height:1.6}
+#diag code{font-family:var(--font-mono);background:#000;padding:1px 5px;border-radius:4px}
+
+.grid{display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:16px}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
+.card h2{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:14px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.card h2 .tag{font-size:10px;letter-spacing:.05em;text-transform:none;color:var(--chg)}
+
+.ring-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.ring{position:relative;width:280px;height:280px}
+.ring svg{transform:rotate(135deg)}
+.ring .track{stroke:var(--panel2)}
+.ring .fill{stroke:var(--heat);stroke-linecap:round;transition:stroke-dashoffset .4s,stroke .3s}
+.ring .fill.boost{stroke:var(--boost)}
+.ring .fill.sboost{stroke:var(--sboost)}
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.cur-temp{font-family:var(--font-mono);font-size:58px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.cur-temp .unit{font-size:22px;color:var(--dim);font-weight:400}
+.cur-src{font-size:10px;color:var(--dim);font-family:var(--font-mono)}
+.tgt-line{font-family:var(--font-mono);font-size:15px;color:var(--dim)}
+.tgt-line b{color:var(--txt)}
+.heat-state{font-size:11px;letter-spacing:.2em;text-transform:uppercase;padding:4px 12px;border-radius:99px;border:1px solid var(--line);color:var(--dim)}
+.heat-state.on{color:var(--heat);border-color:var(--heat)}
+.heat-state.boost{color:var(--boost);border-color:var(--boost)}
+.heat-state.sboost{color:var(--sboost);border-color:var(--sboost)}
+.heat-state.ready{color:var(--ok);border-color:var(--ok)}
+
+.heat-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;margin-top:14px}
+.heat-btns button{padding:13px 4px;font-size:13px}
+#btnHeat.active{background:var(--heat);border-color:var(--heat);color:#100c08}
+#btnBoost.active{background:var(--boost);border-color:var(--boost);color:#100c08}
+#btnSBoost.active{background:var(--sboost);border-color:var(--sboost);color:#fff}
+#btnOff{grid-column:1/-1;background:transparent}
+
+#chart{width:100%;height:110px;margin-top:14px;border-radius:10px;background:var(--panel2)}
+
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row label{font-size:14px}
+.row .hint{display:block;font-size:11px;color:var(--dim);margin-top:2px}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:38px;height:38px;padding:0;font-size:18px;border-radius:9px}
+.stepper .val{font-family:var(--font-mono);font-size:18px;min-width:74px;text-align:center;font-variant-numeric:tabular-nums}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;background:var(--line);border-radius:2px;margin-top:10px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--heat);cursor:pointer;border:none}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--heat);cursor:pointer;border:none}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.presets button{padding:7px 12px;font-size:13px;font-family:var(--font-mono)}
+.presets button.del{border-color:var(--sboost);color:var(--sboost);width:auto}
+
+.batt-wrap{display:flex;align-items:center;gap:18px}
+.batt-num{font-family:var(--font-mono);font-size:44px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1}
+.batt-num small{font-size:18px;color:var(--dim)}
+.batt-shell{flex:1;height:26px;border:2px solid var(--line);border-radius:7px;position:relative;padding:3px}
+.batt-shell::after{content:"";position:absolute;right:-8px;top:50%;transform:translateY(-50%);width:5px;height:12px;background:var(--line);border-radius:0 3px 3px 0}
+.batt-fill{height:100%;border-radius:3px;background:var(--ok);transition:width .5s,background .3s;min-width:2%}
+.batt-fill.low{background:var(--sboost)}
+.batt-fill.mid{background:var(--boost)}
+.batt-fill.charging{background:var(--chg);animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.55}}
+.batt-meta{font-size:12px;color:var(--dim);margin-top:10px;display:flex;gap:16px;flex-wrap:wrap}
+.batt-meta b{color:var(--txt);font-family:var(--font-mono)}
+
+.switch{position:relative;width:44px;height:24px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--line);border-radius:99px;transition:.2s;cursor:pointer}
+.switch span::before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:var(--dim);border-radius:50%;transition:.2s}
+.switch input:checked+span{background:var(--heat)}
+.switch input:checked+span::before{transform:translateX(20px);background:#100c08}
+
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:13px}
+.kv dt{color:var(--dim)}
+.kv dd{font-family:var(--font-mono)}
+.stack{display:flex;flex-direction:column;gap:16px}
+
+details.log{background:var(--panel);border:1px solid var(--line);border-radius:16px;margin-top:16px}
+details.log summary{padding:14px 18px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);cursor:pointer;user-select:none}
+#logBox{font-family:var(--font-mono);font-size:11.5px;line-height:1.7;max-height:240px;overflow:auto;padding:0 18px 16px;white-space:pre-wrap;color:#a8adb5}
+#logBox .tx{color:var(--heat-soft)}
+#logBox .rx{color:var(--chg)}
+#logBox .err{color:var(--sboost)}
+
+#byteTables{padding:0 18px 16px;font-family:var(--font-mono);font-size:11.5px;overflow-x:auto}
+#byteTables table{border-collapse:collapse;margin-bottom:12px}
+#byteTables caption{text-align:left;color:var(--dim);padding:6px 0;font-family:var(--font-ui);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+#byteTables td,#byteTables th{border:1px solid var(--line);padding:4px 7px;text-align:center;min-width:34px}
+#byteTables th{color:var(--dim);font-weight:400}
+#byteTables td.chg{color:var(--boost)}
+#byteTables td.u16{cursor:pointer}
+#byteTables td.u16:hover{background:var(--panel2)}
+#byteTables td.src{background:rgba(62,203,255,.15);color:var(--chg)}
+.explain{color:var(--dim);font-size:11px;padding:0 0 8px;font-family:var(--font-ui)}
+
+.footnote{color:var(--dim);font-size:11.5px;margin-top:14px;line-height:1.6}
+kbd{font-family:var(--font-mono);background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px}
+
+@media(max-width:430px){
+  body{padding:12px}
+  .ring{width:230px;height:230px}
+  .ring svg{width:230px;height:230px}
+  .cur-temp{font-size:46px}
+  .heat-btns button{padding:15px 4px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>VENTY<em>·</em>PANEL</h1>
+    <span class="sub">Web Bluetooth · unofficial · v3</span>
+  </div>
+  <div class="conn">
+    <span class="dot" id="connDot"></span>
+    <span id="connState">Non connesso</span>
+    <button class="primary" id="btnConnect">Connetti</button>
+    <button id="btnDemo">Demo</button>
+    <button id="btnDisconnect" disabled>Disconnetti</button>
+    <label class="chk"><input type="checkbox" id="ckAll">tutti i device</label>
+  </div>
+</header>
+
+<div id="diag"></div>
+
+<div class="grid">
+  <div class="card">
+    <h2>Temperatura <span class="tag" id="wakeTag"></span></h2>
+    <div class="ring-wrap">
+      <div class="ring">
+        <svg width="280" height="280" viewBox="0 0 280 280">
+          <circle class="track" cx="140" cy="140" r="122" fill="none" stroke-width="14" stroke-dasharray="575 767"/>
+          <circle class="fill" id="ringFill" cx="140" cy="140" r="122" fill="none" stroke-width="14" stroke-dasharray="575 767" stroke-dashoffset="575"/>
+        </svg>
+        <div class="ring-center">
+          <div class="cur-temp"><span id="curTemp">--</span><span class="unit" id="unitLbl">°C</span></div>
+          <div class="cur-src" id="curSrc"></div>
+          <div class="tgt-line">target <b id="tgtTempLbl">--</b><span id="effLbl"></span></div>
+          <div class="heat-state" id="heatState">OFF</div>
+        </div>
+      </div>
+      <div class="heat-btns">
+        <button id="btnHeat" title="tasto H">HEAT</button>
+        <button id="btnBoost" title="tasto B">BOOST</button>
+        <button id="btnSBoost" title="tasto S">S-BOOST</button>
+        <button id="btnOff" title="tasto O">SPEGNI RISCALDATORE</button>
+      </div>
+      <canvas id="chart" width="800" height="220"></canvas>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <h2>Setpoint</h2>
+      <div class="row">
+        <div><label>Temperatura target</label><span class="hint">40–210 °C · <kbd>↑</kbd><kbd>↓</kbd> ±1 · <kbd>PgUp</kbd><kbd>PgDn</kbd> ±5</span></div>
+        <div class="stepper">
+          <button data-step="tgt:-5">−5</button>
+          <button data-step="tgt:-1">−</button>
+          <span class="val" id="tgtVal">--</span>
+          <button data-step="tgt:1">+</button>
+          <button data-step="tgt:5">+5</button>
+        </div>
+      </div>
+      <input type="range" id="tgtSlider" min="40" max="210" step="1" value="185">
+      <div class="presets" id="presets"></div>
+      <div class="row" style="margin-top:8px">
+        <div><label>Offset Boost</label><span class="hint">aggiunto al target in boost</span></div>
+        <div class="stepper">
+          <button data-step="boost:-1">−</button><span class="val" id="boostVal">--</span><button data-step="boost:1">+</button>
+        </div>
+      </div>
+      <div class="row">
+        <div><label>Offset Superboost</label></div>
+        <div class="stepper">
+          <button data-step="sboost:-1">−</button><span class="val" id="sboostVal">--</span><button data-step="sboost:1">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Batteria</h2>
+      <div class="batt-wrap">
+        <div class="batt-num"><span id="battPct">--</span><small>%</small></div>
+        <div class="batt-shell"><div class="batt-fill" id="battFill" style="width:0%"></div></div>
+      </div>
+      <div class="batt-meta">
+        <span>Stato: <b id="chgState">--</b></span>
+        <span>Auto-shutdown: <b id="shutdownLbl">--</b></span>
+        <span>Runtime riscaldatore: <b id="runtimeLbl">--</b></span>
+        <span>Tempo in carica: <b id="chargeTimeLbl">--</b></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Impostazioni</h2>
+      <div class="row"><div><label>Unità Fahrenheit</label></div>
+        <label class="switch"><input type="checkbox" id="swFahrenheit"><span></span></label></div>
+      <div class="row"><div><label>Vibrazione</label></div>
+        <label class="switch"><input type="checkbox" id="swVibration"><span></span></label></div>
+      <div class="row"><div><label>Suono a temperatura raggiunta</label><span class="hint">chime dal browser quando READY</span></div>
+        <label class="switch"><input type="checkbox" id="swChime" checked><span></span></label></div>
+      <div class="row"><div><label>Schermo sempre acceso</label><span class="hint">wake lock durante la sessione</span></div>
+        <label class="switch"><input type="checkbox" id="swWake" checked><span></span></label></div>
+      <div class="row"><div><label>Bluetooth permanente</label><span class="hint">BLE attivo anche da spento</span></div>
+        <label class="switch"><input type="checkbox" id="swPermBt"><span></span></label></div>
+      <div class="row"><div><label>Ottimizzazione corrente di carica</label></div>
+        <label class="switch"><input type="checkbox" id="swChgOpt"><span></span></label></div>
+      <div class="row"><div><label>Limite tensione carica (~90%)</label></div>
+        <label class="switch"><input type="checkbox" id="swChgLimit"><span></span></label></div>
+      <div class="row"><div><label>Luminosità LED</label></div>
+        <div class="stepper"><button data-step="bright:-10">−</button><span class="val" id="brightVal">--</span><button data-step="bright:10">+</button></div></div>
+      <div class="row"><div><label>Trova il mio Venty</label></div><button id="btnFind">Trova</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Device</h2>
+      <dl class="kv">
+        <dt>Nome</dt><dd id="devName">--</dd>
+        <dt>Seriale</dt><dd id="devSerial">--</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+
+<details class="log">
+  <summary>Byte explorer — frame live</summary>
+  <div id="byteTables">
+    <div class="explain">Ogni colonna è un byte del frame. In giallo i byte cambiati di recente. Le celle numerate sono coppie u16 little-endian /10: se una di queste segue la temperatura reale del device mentre scalda, <b>cliccala</b> per usarla come temperatura attuale (in azzurro la sorgente attiva).</div>
+  </div>
+</details>
+
+<details class="log">
+  <summary>Console protocollo (TX/RX hex)</summary>
+  <div id="logBox"></div>
+</details>
+
+<p class="footnote">
+Protocollo da reactive-volcano-app + storz-rs (verificato su hardware Venty). I byte 2–3 del frame 0x01 sono confermati inutilizzati:
+la temperatura attuale viene cercata automaticamente nei frame in arrivo (probabile 0x1D) e la sorgente è indicata sotto il numero grande.
+Scorciatoie: <kbd>H</kbd> heat · <kbd>B</kbd> boost · <kbd>S</kbd> superboost · <kbd>O</kbd> off · <kbd>↑↓</kbd> ±1° · <kbd>PgUp/PgDn</kbd> ±5°.
+</p>
+
+<script>
+"use strict";
+/* VENTY BLE — frames 20B [cmd, mask, payload]. Notifications echo cmd in byte0.
+   Svc 00000000-…, char 00000001-…-5354-4f52-5a26-4249434b454c
+   0x01 status: b4-5 target u16LE/10 · b6 boost · b7 sboost · b8 batt% ·
+   b9-10 shutdown s · b11 heaterMode · b13 charging · b14 flags · b16 permBT
+   write masks 2/4/8/16/32/128 · 0x04 ext (runtime,chargeTime u24 min) ·
+   0x05 serial · 0x06 brightness/vibration · 0x0D find · 0x1D status esteso (current temp?) */
+
+const SVC="00000000-5354-4f52-5a26-4249434b454c";
+const CHAR="00000001-5354-4f52-5a26-4249434b454c";
+const $=id=>document.getElementById(id);
+
+const state={device:null,control:null,connected:false,demo:false,
+  status:null,ext:null,info:null,bright:null,pollTimer:null,
+  curTemp:null,curSrc:null,srcLocked:false,
+  frames:{},          // cmd -> {bytes:Uint8Array, changed:Set, t}
+  candidates:{},      // "cmd:off" -> {vals:Set, last, n}
+  history:[],         // {t, cur, tgt}
+  wasReady:false,wakeLock:null};
+
+/* ---------- storage (guarded: works on localhost, degrades elsewhere) ---------- */
+const store={
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+let presets=store.get("vy_presets",[170,180,185,190,195,200,210]);
+
+/* ---------- logging & diagnostics ---------- */
+function hex(buf){return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join(" ");}
+function log(cls,msg){
+  const box=$("logBox");
+  const t=new Date().toLocaleTimeString("it-IT",{hour12:false});
+  box.insertAdjacentHTML("beforeend",`<div class="${cls}">[${t}] ${msg}</div>`);
+  if(box.children.length>400)box.removeChild(box.firstChild);
+  box.scrollTop=box.scrollHeight;
+}
+function diag(msg){const d=$("diag");d.style.display="block";d.innerHTML+=msg+"<br>";}
+(async function checkEnv(){
+  if(location.protocol==="file:")diag("⚠️ Aperto da <b>file://</b> — se la connessione fallisce: <code>python -m http.server 8000</code> nella cartella, poi <code>http://localhost:8000/venty-panel.html</code>.");
+  if(window.self!==window.top)diag("❌ Sei in un <b>iframe</b> (anteprima): Bluetooth bloccato. Scarica il file e aprilo in Chrome.");
+  if(!navigator.bluetooth){diag("❌ <b>navigator.bluetooth assente</b>. Serve Chrome/Edge/Brave. Su Brave abilita <code>brave://flags/#brave-web-bluetooth-api</code>.");return;}
+  try{if(!await navigator.bluetooth.getAvailability())diag("❌ Nessun adapter Bluetooth acceso sul PC.");}catch(e){}
+})();
+
+/* ---------- write queue ---------- */
+let chain=Promise.resolve();
+function enqueue(fn){chain=chain.then(fn).catch(e=>log("err","ERR "+e.message));return chain;}
+function writeFrame(bytes,label){
+  return enqueue(async()=>{
+    const buf=new ArrayBuffer(20);const v=new DataView(buf);
+    for(const [i,val] of Object.entries(bytes))v.setUint8(+i,val&0xff);
+    log("tx","TX "+(label||"")+"  "+hex(buf));
+    if(state.demo){demoWrite(new Uint8Array(buf));return;}
+    if(state.control)await state.control.writeValue(buf);
+  });
+}
+
+/* ---------- connection ---------- */
+async function connect(){
+  try{
+    if(!navigator.bluetooth){diag("❌ Web Bluetooth non disponibile qui.");return;}
+    setConn("Ricerca…");
+    const opts=$("ckAll").checked
+      ?{acceptAllDevices:true,optionalServices:[SVC]}
+      :{filters:[{namePrefix:"S&B"}],optionalServices:[SVC]};
+    state.device=await navigator.bluetooth.requestDevice(opts);
+    state.device.addEventListener("gattserverdisconnected",onDisconnected);
+    setConn("Connessione…");
+    let server=null,lastErr=null;
+    for(let i=1;i<=3;i++){
+      try{server=await state.device.gatt.connect();break;}
+      catch(e){lastErr=e;log("err","GATT connect "+i+"/3: "+e.message);await new Promise(r=>setTimeout(r,800));}
+    }
+    if(!server)throw lastErr;
+    const svc=await server.getPrimaryService(SVC);
+    state.control=await svc.getCharacteristic(CHAR);
+    state.control.addEventListener("characteristicvaluechanged",onNotify);
+    await state.control.startNotifications();
+    await initSequence();
+    state.connected=true;
+    $("devName").textContent=state.device.name||"?";
+    setConn("Connesso",true);
+    $("btnConnect").disabled=true;$("btnDisconnect").disabled=false;$("btnDemo").disabled=true;
+    startPolling();
+    acquireWakeLock();
+  }catch(e){
+    log("err","Connect: "+e.name+" — "+e.message);
+    setConn("Non connesso");
+    if(e.name==="NotFoundError")diag("Nessun device scelto/trovato. Venty <b>acceso</b>, PWA S&B <b>chiusa</b>. Se non appare, spunta \"tutti i device\".");
+    else if(e.name==="SecurityError")diag("SecurityError: servi il file su localhost (vedi sopra).");
+    else if(e.name==="NetworkError")diag("NetworkError GATT: il Venty è già connesso ad altro (PWA ufficiale o telefono). Disconnetti tutto, riavvia il Venty, riprova.");
+  }
+}
+async function initSequence(){
+  await writeFrame({0:0x02},"init");
+  await writeFrame({0:0x1d},"statusExt");
+  await writeFrame({0:0x01},"status");
+  await writeFrame({0:0x04},"extended");
+  await writeFrame({0:0x05},"deviceInfo");
+  await writeFrame({0:0x06},"brightness");
+}
+function startPolling(){
+  clearInterval(state.pollTimer);
+  let tick=0;
+  state.pollTimer=setInterval(()=>{
+    writeFrame({0:0x01},"poll");
+    writeFrame({0:0x1d},"pollExt");        // candidate source for current temp
+    if(++tick%30===0)writeFrame({0:0x04},"pollRuntime");
+  },1000);
+}
+function disconnect(){
+  if(state.demo){stopDemo();return;}
+  if(state.device?.gatt?.connected)state.device.gatt.disconnect();else onDisconnected();
+}
+function onDisconnected(){
+  clearInterval(state.pollTimer);
+  state.connected=false;state.control=null;
+  releaseWakeLock();
+  setConn("Non connesso");
+  $("btnConnect").disabled=false;$("btnDisconnect").disabled=true;$("btnDemo").disabled=false;
+  log("err","Disconnesso");
+}
+function setConn(txt,on,demo){
+  $("connState").textContent=txt;
+  const d=$("connDot");d.classList.toggle("on",!!on&&!demo);d.classList.toggle("demo",!!demo);
+}
+
+/* ---------- notifications & parsing ---------- */
+function onNotify(ev){handleFrame(ev.target.value);}
+function handleFrame(v){
+  if(!v)return;
+  const cmd=v.getUint8(0);
+  log("rx","RX 0x"+cmd.toString(16).padStart(2,"0")+"  "+hex(v.buffer));
+  trackFrame(cmd,new Uint8Array(v.buffer.slice(0)));
+  if(cmd===0x01)parseStatus(v);
+  else if(cmd===0x04)parseExtended(v);
+  else if(cmd===0x05)parseInfo(v);
+  else if(cmd===0x06)parseBright(v);
+  scanCurrentTemp(cmd,v);
+  render();
+}
+function parseStatus(v){
+  if(v.byteLength<15)return;
+  const flags=v.getUint8(14);
+  state.status={
+    targetTemp:Math.round(v.getUint16(4,true)/10),
+    boost:v.getUint8(6),sboost:v.getUint8(7),
+    battery:v.getUint8(8),
+    shutdown:v.getUint8(9)+(v.getUint8(10)<<8),
+    heaterMode:v.getUint8(11),
+    charging:v.getUint8(13)>0,
+    isCelsius:!(flags&0x01),
+    setpointReached:!!(flags&0x02),
+    chgOpt:!!(flags&0x08),chgLimit:!!(flags&0x20),
+    vibration:!!(flags&0x40),
+    permBt:v.byteLength>16?!!(v.getUint8(16)&0x01):false,
+  };
+}
+function parseExtended(v){state.ext={
+  runtime:v.getUint8(1)+(v.getUint8(2)<<8)+(v.getUint8(3)<<16),
+  chargeTime:v.getUint8(4)+(v.getUint8(5)<<8)+(v.getUint8(6)<<16)};}
+function parseInfo(v){try{const d=new TextDecoder();
+  state.info={serial:d.decode(v.buffer.slice(15,17))+d.decode(v.buffer.slice(9,15))};}catch(e){}}
+function parseBright(v){state.bright={brightness:v.getUint8(2),vibration:v.getUint8(5)};}
+
+/* ---------- current-temp auto-detect ----------
+   Watch every u16LE/10 field in frames 0x01 and 0x1D.
+   A field qualifies when it stays in 15–250 °C and shows ≥6 distinct values
+   (a real temperature moves; constants and targets don't).
+   Byte 4 of 0x01 (the target) is excluded. Manual override by clicking
+   a cell in the byte explorer wins over auto-detect. */
+function scanCurrentTemp(cmd,v){
+  if(cmd!==0x01&&cmd!==0x1d)return;
+  for(let off=2;off+1<v.byteLength;off++){
+    if(cmd===0x01&&(off===4||off===5))continue;
+    const val=v.getUint16(off,true)/10;
+    const key=cmd+":"+off;
+    let c=state.candidates[key];
+    if(!c)c=state.candidates[key]={vals:new Set(),last:null,plausible:true};
+    c.last=val;
+    if(val<15||val>250){c.plausible=false;continue;}
+    c.vals.add(Math.round(val*10));
+  }
+  // pick source: manual lock > best candidate
+  if(!state.srcLocked){
+    let best=null,bestN=5; // need >5 distinct readings before trusting
+    for(const [key,c] of Object.entries(state.candidates))
+      if(c.plausible&&c.vals.size>bestN){best=key;bestN=c.vals.size;}
+    if(best)state.curSrc=best;
+  }
+  if(state.curSrc){
+    const c=state.candidates[state.curSrc];
+    state.curTemp=(c&&c.plausible!==false&&c.last>=0&&c.last<=250)?c.last:null;
+  }
+  if(state.curTemp!=null&&state.status)
+    pushHistory(state.curTemp,effectiveTarget());
+}
+function setSrcManual(key){
+  state.curSrc=key;state.srcLocked=true;
+  log("rx","Sorgente temperatura attuale impostata manualmente: "+key);
+}
+
+/* ---------- byte explorer ---------- */
+function trackFrame(cmd,bytes){
+  const prev=state.frames[cmd];
+  const changed=new Set();
+  if(prev)for(let i=0;i<bytes.length;i++)if(bytes[i]!==prev.bytes[i])changed.add(i);
+  state.frames[cmd]={bytes,changed,t:Date.now()};
+}
+function renderByteTables(){
+  const host=$("byteTables");
+  for(const cmd of Object.keys(state.frames)){
+    const f=state.frames[cmd];
+    let tbl=document.getElementById("bt"+cmd);
+    if(!tbl){
+      tbl=document.createElement("table");tbl.id="bt"+cmd;
+      tbl.innerHTML="<caption></caption><tbody><tr class='r-idx'></tr><tr class='r-hex'></tr><tr class='r-dec'></tr><tr class='r-u16'></tr></tbody>";
+      host.appendChild(tbl);
+    }
+    tbl.querySelector("caption").textContent="Frame 0x"+(+cmd).toString(16).padStart(2,"0");
+    const n=f.bytes.length;
+    const rIdx=tbl.querySelector(".r-idx"),rHex=tbl.querySelector(".r-hex"),
+          rDec=tbl.querySelector(".r-dec"),rU16=tbl.querySelector(".r-u16");
+    let hIdx="<th>byte</th>",hHex="<th>hex</th>",hDec="<th>dec</th>",hU16="<th>u16/10</th>";
+    for(let i=0;i<n;i++){
+      const cls=f.changed.has(i)?" class='chg'":"";
+      hIdx+="<th>"+i+"</th>";
+      hHex+="<td"+cls+">"+f.bytes[i].toString(16).padStart(2,"0")+"</td>";
+      hDec+="<td"+cls+">"+f.bytes[i]+"</td>";
+      if(i+1<n){
+        const key=(+cmd)+":"+i;
+        const u=(f.bytes[i]+(f.bytes[i+1]<<8))/10;
+        const src=state.curSrc===key?" src":"";
+        hU16+="<td class='u16"+src+"' data-key='"+key+"' title='usa come temp attuale'>"+(u<=6553?u.toFixed(1):"·")+"</td>";
+      }else hU16+="<td>·</td>";
+    }
+    rIdx.innerHTML=hIdx;rHex.innerHTML=hHex;rDec.innerHTML=hDec;rU16.innerHTML=hU16;
+  }
+}
+$("byteTables").addEventListener("click",e=>{
+  const k=e.target.dataset?.key;if(k)setSrcManual(k);
+});
+
+/* ---------- session chart ---------- */
+function pushHistory(cur,tgt){
+  const h=state.history,now=Date.now();
+  if(h.length&&now-h[h.length-1].t<900)return;
+  h.push({t:now,cur,tgt});
+  const cutoff=now-10*60*1000;
+  while(h.length&&h[0].t<cutoff)h.shift();
+}
+function drawChart(){
+  const cv=$("chart"),ctx=cv.getContext("2d");
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const h=state.history;if(h.length<2)return;
+  const t0=h[0].t,t1=h[h.length-1].t,span=Math.max(t1-t0,30000);
+  let lo=Infinity,hi=-Infinity;
+  for(const p of h){lo=Math.min(lo,p.cur,p.tgt);hi=Math.max(hi,p.cur,p.tgt);}
+  lo=Math.floor(lo/10)*10-5;hi=Math.ceil(hi/10)*10+5;
+  const X=t=>30+(t-t0)/span*(cv.width-40);
+  const Y=v=>cv.height-16-(v-lo)/(hi-lo)*(cv.height-30);
+  ctx.font="20px JetBrains Mono";ctx.fillStyle="#8b8e95";
+  ctx.fillText(hi+"°",2,Y(hi)+7);ctx.fillText(lo+"°",2,Y(lo)+7);
+  ctx.strokeStyle="#2a2d33";ctx.setLineDash([4,5]);ctx.beginPath();
+  ctx.moveTo(X(t0),Y(h[h.length-1].tgt));ctx.lineTo(X(t1),Y(h[h.length-1].tgt));ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle="#ff6a13";ctx.lineWidth=3;ctx.beginPath();
+  h.forEach((p,i)=>{i?ctx.lineTo(X(p.t),Y(p.cur)):ctx.moveTo(X(p.t),Y(p.cur));});
+  ctx.stroke();ctx.lineWidth=1;
+}
+
+/* ---------- chime & wake lock ---------- */
+function chime(){
+  if(!$("swChime").checked)return;
+  try{
+    const ac=new (window.AudioContext||window.webkitAudioContext)();
+    [660,880].forEach((f,i)=>{
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.frequency.value=f;o.connect(g);g.connect(ac.destination);
+      g.gain.setValueAtTime(.15,ac.currentTime+i*.18);
+      g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+i*.18+.35);
+      o.start(ac.currentTime+i*.18);o.stop(ac.currentTime+i*.18+.4);
+    });
+  }catch(e){}
+}
+async function acquireWakeLock(){
+  if(!$("swWake").checked||!navigator.wakeLock)return;
+  try{state.wakeLock=await navigator.wakeLock.request("screen");$("wakeTag").textContent="🔆 schermo attivo";}catch(e){}
+}
+function releaseWakeLock(){try{state.wakeLock?.release();}catch(e){}state.wakeLock=null;$("wakeTag").textContent="";}
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&(state.connected||state.demo))acquireWakeLock();
+});
+
+/* ---------- commands ---------- */
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+function effectiveTarget(){const s=state.status;if(!s)return 0;
+  return s.targetTemp+(s.heaterMode===2?s.boost:s.heaterMode===3?s.sboost:0);}
+function setTarget(c){c=clamp(Math.round(c),40,210);optimistic("targetTemp",c);
+  const t=c*10;writeFrame({0:1,1:2,4:t&0xff,5:(t>>8)&0xff},"setTarget "+c);}
+function setBoost(x){x=clamp(x,0,50);optimistic("boost",x);writeFrame({0:1,1:4,6:x},"setBoost "+x);}
+function setSBoost(x){x=clamp(x,0,60);optimistic("sboost",x);writeFrame({0:1,1:8,7:x},"setSBoost "+x);}
+function setHeater(m){optimistic("heaterMode",m);writeFrame({0:1,1:32,11:m},"heaterMode "+m);}
+function setUnit(f){writeFrame({0:1,1:128,14:f?1:0,15:1},"unit "+(f?"F":"C"));}
+function setChgOpt(on){writeFrame({0:1,1:128,14:on?0x08:0,15:8},"chgOpt "+on);}
+function setChgLimit(on){writeFrame({0:1,1:128,14:on?0x20:0,15:32},"chgLimit "+on);}
+function setPermBt(on){writeFrame({0:1,1:128,16:on?1:0,17:1},"permBT "+on);}
+function setVibration(on){writeFrame({0:6,1:1<<3,5:on?1:0},"vibration "+on);}
+function setBrightness(x){x=clamp(x,0,100);if(state.bright)state.bright.brightness=x;render();
+  writeFrame({0:6,1:1,2:x},"brightness "+x);}
+function findMy(){writeFrame({0:0x0d,1:0x01},"findMyDevice");}
+function optimistic(k,val){if(state.status){state.status[k]=val;render();}}
+
+/* ---------- render ---------- */
+const toF=c=>Math.round(c*1.8+32);
+function fmt(c){const s=state.status;return s&&!s.isCelsius?toF(c):Math.round(c);}
+function render(){
+  const s=state.status;if(!s)return;
+  const unit=s.isCelsius?"°C":"°F";
+  $("unitLbl").textContent=unit;
+  const eff=effectiveTarget();
+
+  $("curTemp").textContent=state.curTemp!=null?fmt(state.curTemp):"--";
+  $("curSrc").textContent=state.curTemp!=null?("sorgente frame 0x"+(+state.curSrc.split(":")[0]).toString(16).padStart(2,"0")+" @byte "+state.curSrc.split(":")[1]+(state.srcLocked?" (manuale)":"")):"in attesa dati temp…";
+  $("tgtTempLbl").textContent=fmt(s.targetTemp)+unit;
+  $("effLbl").textContent=(s.heaterMode>=2)?(" → "+fmt(eff)+unit):"";
+  $("tgtVal").textContent=fmt(s.targetTemp)+unit;
+  $("tgtSlider").value=s.targetTemp;
+  $("boostVal").textContent="+"+(s.isCelsius?s.boost:Math.round(toF(s.boost)-32))+"°";
+  $("sboostVal").textContent="+"+(s.isCelsius?s.sboost:Math.round(toF(s.sboost)-32))+"°";
+
+  const base=state.curTemp!=null?state.curTemp:s.targetTemp;
+  const ratio=clamp((base-40)/170,0,1);
+  const fe=$("ringFill");
+  fe.style.strokeDashoffset=575*(1-ratio);
+  fe.classList.toggle("boost",s.heaterMode===2);
+  fe.classList.toggle("sboost",s.heaterMode===3);
+
+  const hs=$("heatState");hs.className="heat-state";
+  if(s.heaterMode===0)hs.textContent="OFF";
+  else if(s.setpointReached){hs.textContent="READY";hs.classList.add("ready");}
+  else if(s.heaterMode===1){hs.textContent="HEATING";hs.classList.add("on");}
+  else if(s.heaterMode===2){hs.textContent="BOOST";hs.classList.add("boost");}
+  else{hs.textContent="SUPERBOOST";hs.classList.add("sboost");}
+  if(s.setpointReached&&!state.wasReady&&s.heaterMode>0){chime();document.title="✅ READY — Venty";}
+  if(!s.setpointReached)document.title="VENTY Panel";
+  state.wasReady=s.setpointReached;
+
+  $("btnHeat").classList.toggle("active",s.heaterMode===1);
+  $("btnBoost").classList.toggle("active",s.heaterMode===2);
+  $("btnSBoost").classList.toggle("active",s.heaterMode===3);
+
+  $("battPct").textContent=s.battery;
+  const bf=$("battFill");bf.style.width=s.battery+"%";
+  bf.className="batt-fill"+(s.charging?" charging":s.battery<=20?" low":s.battery<=50?" mid":"");
+  $("chgState").textContent=s.charging?"in carica ⚡":"a batteria";
+  $("shutdownLbl").textContent=s.shutdown?Math.round(s.shutdown/60)+" min":"--";
+  if(state.ext){$("runtimeLbl").textContent=(state.ext.runtime/60).toFixed(1)+" h";
+    $("chargeTimeLbl").textContent=(state.ext.chargeTime/60).toFixed(1)+" h";}
+  if(state.info)$("devSerial").textContent=state.info.serial;
+  if(state.bright)$("brightVal").textContent=state.bright.brightness+"%";
+
+  $("swFahrenheit").checked=!s.isCelsius;
+  $("swVibration").checked=s.vibration;
+  $("swPermBt").checked=s.permBt;
+  $("swChgOpt").checked=s.chgOpt;
+  $("swChgLimit").checked=s.chgLimit;
+
+  renderByteTables();drawChart();
+}
+
+/* ---------- presets ---------- */
+function renderPresets(){
+  const host=$("presets");host.innerHTML="";
+  presets.forEach(p=>{
+    const b=document.createElement("button");
+    b.textContent=p+"°";b.dataset.preset=p;
+    b.title="click = imposta · click destro = elimina";
+    b.oncontextmenu=e=>{e.preventDefault();presets=presets.filter(x=>x!==p);store.set("vy_presets",presets);renderPresets();};
+    host.appendChild(b);
+  });
+  const add=document.createElement("button");
+  add.textContent="+ salva attuale";
+  add.onclick=()=>{const t=state.status?.targetTemp;if(t&&!presets.includes(t)){presets.push(t);presets.sort((a,b)=>a-b);store.set("vy_presets",presets);renderPresets();}};
+  host.appendChild(add);
+}
+renderPresets();
+
+/* ---------- demo mode (fake Venty) ---------- */
+let demoState=null,demoTimer=null;
+function startDemo(){
+  state.demo=true;
+  demoState={target:1850,boost:15,sboost:30,batt:73,shutdown:600,mode:0,charging:0,
+    flags:0x40,cur:230,permBt:1,bright:70,vib:1};
+  setConn("Demo",true,true);
+  $("btnConnect").disabled=true;$("btnDisconnect").disabled=false;$("btnDemo").disabled=true;
+  $("devName").textContent="S&B VY__DEMO";
+  initSequence();startPolling();acquireWakeLock();
+  demoTimer=setInterval(()=>{ // heat physics
+    const d=demoState;
+    const eff=d.target+(d.mode===2?d.boost*10:d.mode===3?d.sboost*10:0);
+    if(d.mode>0){d.cur+=Math.max(4,(eff-d.cur)*0.06);if(d.cur>eff)d.cur=eff;
+      d.flags=d.cur>=eff-15?(d.flags|0x02):(d.flags&~0x02);
+      if(Math.random()<0.02)d.batt=Math.max(1,d.batt-1);}
+    else{d.cur=Math.max(230,d.cur-(d.cur-230)*0.03-1);d.flags&=~0x02;}
+  },1000);
+  log("rx","DEMO attiva: device simulato");
+}
+function stopDemo(){clearInterval(demoTimer);clearInterval(state.pollTimer);
+  state.demo=false;demoState=null;releaseWakeLock();
+  setConn("Non connesso");
+  $("btnConnect").disabled=false;$("btnDisconnect").disabled=true;$("btnDemo").disabled=false;}
+function demoWrite(tx){
+  const d=demoState;if(!d)return;
+  const cmd=tx[0],mask=tx[1];
+  if(cmd===0x01&&mask){
+    if(mask&2)d.target=tx[4]+(tx[5]<<8);
+    if(mask&4)d.boost=tx[6];
+    if(mask&8)d.sboost=tx[7];
+    if(mask&16)d.shutdown=tx[9]+(tx[10]<<8);
+    if(mask&32)d.mode=tx[11];
+    if(mask&128){if(tx[15]&1)d.flags=(d.flags&~1)|(tx[14]&1);
+      if(tx[17]&1)d.permBt=tx[16]&1;}
+  }
+  if(cmd===0x06&&mask){if(mask&1)d.bright=tx[2];if(mask&8)d.vib=tx[5];}
+  setTimeout(()=>{ // synthesize notification
+    const b=new Uint8Array(20);b[0]=cmd;
+    if(cmd===0x01||cmd===0x1d){
+      b[0]=cmd;
+      if(cmd===0x1d){b[2]=Math.round(d.cur)&0xff;b[3]=(Math.round(d.cur)>>8)&0xff;} // current temp hides in 0x1D bytes 2-3
+      b[4]=d.target&0xff;b[5]=(d.target>>8)&0xff;
+      b[6]=d.boost;b[7]=d.sboost;b[8]=d.batt;
+      b[9]=d.shutdown&0xff;b[10]=(d.shutdown>>8)&0xff;
+      b[11]=d.mode;b[13]=d.charging;b[14]=d.flags;b[16]=d.permBt;
+    }else if(cmd===0x04){b[1]=142;b[2]=1;b[4]=90;}
+    else if(cmd===0x05){const s="DEMO01";for(let i=0;i<6;i++)b[9+i]=s.charCodeAt(i);b[15]=86;b[16]=89;b[18]=0;}
+    else if(cmd===0x06){b[2]=d.bright;b[5]=d.vib;}
+    handleFrame(new DataView(b.buffer));
+  },60);
+}
+
+/* ---------- UI wiring ---------- */
+$("btnConnect").onclick=connect;
+$("btnDemo").onclick=startDemo;
+$("btnDisconnect").onclick=disconnect;
+$("btnHeat").onclick=()=>setHeater(1);
+$("btnBoost").onclick=()=>setHeater(2);
+$("btnSBoost").onclick=()=>setHeater(3);
+$("btnOff").onclick=()=>setHeater(0);
+$("btnFind").onclick=findMy;
+$("tgtSlider").oninput=e=>{$("tgtVal").textContent=e.target.value+"°";};
+$("tgtSlider").onchange=e=>setTarget(+e.target.value);
+$("presets").addEventListener("click",e=>{const p=e.target.dataset?.preset;if(p)setTarget(+p);});
+document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{
+  const [what,d]=b.dataset.step.split(":");const n=+d;const s=state.status;
+  if(what==="bright"){setBrightness((state.bright?.brightness??50)+n);return;}
+  if(!s)return;
+  if(what==="tgt")setTarget(s.targetTemp+n);
+  else if(what==="boost")setBoost(s.boost+n);
+  else if(what==="sboost")setSBoost(s.sboost+n);
+});
+$("swFahrenheit").onchange=e=>setUnit(e.target.checked);
+$("swVibration").onchange=e=>setVibration(e.target.checked);
+$("swPermBt").onchange=e=>setPermBt(e.target.checked);
+$("swChgOpt").onchange=e=>setChgOpt(e.target.checked);
+$("swChgLimit").onchange=e=>setChgLimit(e.target.checked);
+$("swWake").onchange=e=>e.target.checked?acquireWakeLock():releaseWakeLock();
+document.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT")return;
+  const s=state.status;if(!s)return;
+  if(e.key==="ArrowUp"){setTarget(s.targetTemp+1);e.preventDefault();}
+  else if(e.key==="ArrowDown"){setTarget(s.targetTemp-1);e.preventDefault();}
+  else if(e.key==="PageUp"){setTarget(s.targetTemp+5);e.preventDefault();}
+  else if(e.key==="PageDown"){setTarget(s.targetTemp-5);e.preventDefault();}
+  else if(e.key==="h"||e.key==="H")setHeater(1);
+  else if(e.key==="b"||e.key==="B")setHeater(2);
+  else if(e.key==="s"||e.key==="S")setHeater(3);
+  else if(e.key==="o"||e.key==="O")setHeater(0);
+});
+
+/* ---------- PWA ---------- */
+if("serviceWorker" in navigator && location.protocol!=="file:")
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
