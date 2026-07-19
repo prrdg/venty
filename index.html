@@ -315,8 +315,8 @@ const store={
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 };
 let presets=store.get("vy_presets",[170,180,185,190,195,200,210]);
-state.curSrc=store.get("vy_src",null);
-state.srcLocked=store.get("vy_src_lock",false);
+state.curSrc=store.get("vy_src2",null);
+state.srcLocked=store.get("vy_src_lock2",false);
 
 /* ---------- logging & diagnostics ---------- */
 function hex(buf){return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join(" ");}
@@ -485,6 +485,7 @@ function scanCurrentTemp(cmd,v){
     if(c.vals.size<=1&&state.status&&c.last===state.status.targetTemp)return false;
     return true;
   };
+  if(cmd!==0x1d)return doneScan();
   if(!state.srcLocked&&state.status&&state.status.heaterMode>0){
     let best=null,bestN=1;
     for(const e of Object.entries(state.candidates))
@@ -499,22 +500,25 @@ function scanCurrentTemp(cmd,v){
       }
     }
     if(best&&best!==state.curSrc){
-      state.curSrc=best;store.set("vy_src",best);
+      state.curSrc=best;store.set("vy_src2",best);
       log("rx","Sorgente temp rilevata: "+best);
     }
   }
-  if(state.curSrc){
-    const c=state.candidates[state.curSrc];
-    const off=!state.status||state.status.heaterMode===0;
-    state.curSentinel=off||!!(c&&c.sentinel);
-    state.curTemp=(!off&&c&&!c.sentinel&&c.last!=null&&c.last>=0&&c.last<=250)?c.last:null;
+  doneScan();
+  function doneScan(){
+    if(state.curSrc){
+      const c=state.candidates[state.curSrc];
+      const off=!state.status||state.status.heaterMode===0;
+      state.curSentinel=off||!!(c&&c.sentinel);
+      state.curTemp=(!off&&c&&!c.sentinel&&c.last!=null&&c.last>=0&&c.last<=250)?c.last:null;
+    }
+    if(state.curTemp!=null&&state.status)
+      pushHistory(state.curTemp,effectiveTarget());
   }
-  if(state.curTemp!=null&&state.status)
-    pushHistory(state.curTemp,effectiveTarget());
 }
 function setSrcManual(key){
   state.curSrc=key;state.srcLocked=true;
-  store.set("vy_src",key);store.set("vy_src_lock",true);
+  store.set("vy_src2",key);store.set("vy_src_lock2",true);
   log("rx","Sorgente temperatura attuale impostata manualmente: "+key);
   render();
 }
@@ -639,10 +643,13 @@ function render(){
   $("unitLbl").textContent=unit;
   const eff=effectiveTarget();
 
-  $("curTemp").textContent=state.curTemp!=null?fmt(state.curTemp):"--";
-  $("curSrc").textContent=state.curTemp!=null
-    ?("sorgente frame 0x"+(+state.curSrc.split(":")[0]).toString(16).padStart(2,"0")+" @byte "+state.curSrc.split(":")[1]+(state.srcLocked?" (manuale)":""))
-    :(state.curSentinel?"riscaldatore spento — nessun dato":"in attesa dati temp…");
+  if(state.curTemp!=null){
+    $("curTemp").textContent=fmt(state.curTemp);
+    $("curSrc").textContent="temp live · frame 0x"+(+state.curSrc.split(":")[0]).toString(16).padStart(2,"0")+" @byte "+state.curSrc.split(":")[1]+(state.srcLocked?" (manuale)":"");
+  }else{
+    $("curTemp").textContent=fmt(s.targetTemp);
+    $("curSrc").textContent="setpoint — il Venty non trasmette la temp live via BLE";
+  }
   $("tgtTempLbl").textContent=fmt(s.targetTemp)+unit;
   $("effLbl").textContent=(s.heaterMode>=2)?(" → "+fmt(eff)+unit):"";
   $("tgtVal").textContent=fmt(s.targetTemp)+unit;
