@@ -315,9 +315,16 @@ const store={
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 };
 let presets=store.get("vy_presets",[170,180,185,190,195,200,210]);
-// FIX: Imposta "29:2" (Frame 0x1D, Byte 2) come default nativo iniziale
+
+// FIX: Carica lo stato iniziale e forza il reset se rileva vecchie chiavi obsolete o bloccate
 state.curSrc=store.get("vy_src2","29:2");
 state.srcLocked=store.get("vy_src_lock2",false);
+if(!state.curSrc || state.curSrc.startsWith("1:") || !state.curSrc.startsWith("29:")){
+  state.curSrc="29:2";
+  state.srcLocked=false;
+  store.set("vy_src2","29:2");
+  store.set("vy_src_lock2",false);
+}
 
 /* ---------- logging & diagnostics ---------- */
 function hex(buf){return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join(" ");}
@@ -459,13 +466,11 @@ function parseBright(v){state.bright={brightness:v.getUint8(2),vibration:v.getUi
 
 /* ---------- current-temp auto-detect ---------- */
 function scanCurrentTemp(cmd,v){
-  if(cmd!==0x01&&cmd!==0x1d)return;
-  state.scanFrames=(state.scanFrames||0)+1;
+  // FIX: Ignora completamente il Frame 0x01 per catturare solo la temperatura estesa nativa
+  if(cmd!==0x1d) return doneScan();
   
-  // FIX: Ignora completamente i byte interni di 0x01 per evitare bug del contatore di spegnimento
+  state.scanFrames=(state.scanFrames||0)+1;
   for(let off=2;off+1<v.byteLength;off++){
-    if(cmd===0x01) continue; 
-    
     const raw=v.getUint16(off,true);
     const key=cmd+":"+off;
     let c=state.candidates[key];
@@ -479,38 +484,11 @@ function scanCurrentTemp(cmd,v){
     else c.bad++;
   }
   
-  const eligible=([k,c])=>{
-    if(!(c.good>0&&c.bad<=c.good))return false;
-    if(c.vals.size<=1&&state.status&&c.last===state.status.targetTemp)return false;
-    return true;
-  };
-  
-  if(cmd!==0x1d)return doneScan();
-  
-  if(!state.srcLocked&&state.status&&state.status.heaterMode>0){
-    // FIX: Se arrivano frame validi da "29:2" (0x1D, byte 2), assegna priorità assoluta ad esso
-    if(state.candidates["29:2"] && state.candidates["29:2"].last != null) {
-      if(state.curSrc !== "29:2") {
-        state.curSrc="29:2"; store.set("vy_src2","29:2");
-        log("rx","Sorgente temp agganciata su standard Venty (29:2)");
-      }
-    } else {
-      let best=null,bestN=1;
-      for(const e of Object.entries(state.candidates))
-        if(eligible(e)&&e[1].vals.size>bestN){best=e[0];bestN=e[1].vals.size;}
-      
-      if(!best&&state.scanFrames>8&&state.status){
-        const eff=effectiveTarget();let bestD=1e9;
-        for(const e of Object.entries(state.candidates)){
-          if(!eligible(e)||e[1].last==null)continue;
-          const d=Math.abs(e[1].last-eff);
-          if(d<bestD){bestD=d;best=e[0];}
-        }
-      }
-      if(best&&best!==state.curSrc){
-        state.curSrc=best;store.set("vy_src2",best);
-        log("rx","Sorgente temp rilevata: "+best);
-      }
+  // Forza la sorgente corretta nativa 29:2 (0x1D, byte 2) se non è stata bloccata a mano
+  if(!state.srcLocked && state.candidates["29:2"] && state.candidates["29:2"].last != null){
+    if(state.curSrc !== "29:2"){
+      state.curSrc="29:2";
+      store.set("vy_src2","29:2");
     }
   }
   doneScan();
@@ -518,9 +496,9 @@ function scanCurrentTemp(cmd,v){
   function doneScan(){
     if(state.curSrc){
       const c=state.candidates[state.curSrc];
-      const off=!state.status||state.status.heaterMode===0;
-      state.curSentinel=off||!!(c&&c.sentinel);
-      state.curTemp=(!off&&c&&!c.sentinel&&c.last!=null&&c.last>=0&&c.last<=250)?c.last:null;
+      // FIX: Rimosso il blocco artificiale su heaterMode===0 per vedere il cooldown anche da spento
+      state.curSentinel=!!(c&&c.sentinel);
+      state.curTemp=(c&&!c.sentinel&&c.last!=null&&c.last>=0&&c.last<=250)?c.last:null;
     }
     if(state.curTemp!=null&&state.status)
       pushHistory(state.curTemp,effectiveTarget());
