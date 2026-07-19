@@ -314,6 +314,8 @@ const store={
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 };
 let presets=store.get("vy_presets",[170,180,185,190,195,200,210]);
+state.curSrc=store.get("vy_src",null);
+state.srcLocked=store.get("vy_src_lock",false);
 
 /* ---------- logging & diagnostics ---------- */
 function hex(buf){return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join(" ");}
@@ -461,6 +463,7 @@ function parseBright(v){state.bright={brightness:v.getUint8(2),vibration:v.getUi
    a cell in the byte explorer wins over auto-detect. */
 function scanCurrentTemp(cmd,v){
   if(cmd!==0x01&&cmd!==0x1d)return;
+  state.scanFrames=(state.scanFrames||0)+1;
   for(let off=2;off+1<v.byteLength;off++){
     if(cmd===0x01&&(off===4||off===5))continue;
     const val=v.getUint16(off,true)/10;
@@ -471,12 +474,25 @@ function scanCurrentTemp(cmd,v){
     if(val<15||val>250){c.plausible=false;continue;}
     c.vals.add(Math.round(val*10));
   }
-  // pick source: manual lock > best candidate
+  // pick source: manual lock > moving candidate > plausible fallback
   if(!state.srcLocked){
-    let best=null,bestN=5; // need >5 distinct readings before trusting
+    let best=null,bestN=1;
     for(const [key,c] of Object.entries(state.candidates))
       if(c.plausible&&c.vals.size>bestN){best=key;bestN=c.vals.size;}
-    if(best)state.curSrc=best;
+    // fallback: device already at setpoint → nothing moves. After ~8 frames
+    // take the plausible field closest to the effective target.
+    if(!best&&state.scanFrames>8&&state.status){
+      const eff=effectiveTarget();let bestD=1e9;
+      for(const [key,c] of Object.entries(state.candidates)){
+        if(!c.plausible||c.last==null)continue;
+        const d=Math.abs(c.last-eff);
+        if(d<bestD){bestD=d;best=key;}
+      }
+    }
+    if(best&&best!==state.curSrc){
+      state.curSrc=best;store.set("vy_src",best);
+      log("rx","Sorgente temp rilevata: "+best);
+    }
   }
   if(state.curSrc){
     const c=state.candidates[state.curSrc];
@@ -487,7 +503,9 @@ function scanCurrentTemp(cmd,v){
 }
 function setSrcManual(key){
   state.curSrc=key;state.srcLocked=true;
+  store.set("vy_src",key);store.set("vy_src_lock",true);
   log("rx","Sorgente temperatura attuale impostata manualmente: "+key);
+  render();
 }
 
 /* ---------- byte explorer ---------- */
