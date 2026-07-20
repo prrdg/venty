@@ -244,6 +244,8 @@ kbd{font-family:var(--mono);background:var(--card);border-radius:4px;padding:1px
         <label class="switch"><input type="checkbox" id="swChime" checked><span></span></label></div>
       <div class="row"><div><label>Schermo sempre acceso</label></div>
         <label class="switch"><input type="checkbox" id="swWake" checked><span></span></label></div>
+      <div class="row venty-only"><div><label>Visualizzazione boost</label><span class="hint">mostra la temperatura effettiva in boost sul display</span></div>
+        <label class="switch"><input type="checkbox" id="swBoostViz"><span></span></label></div>
       <div class="row venty-only"><div><label>Bluetooth permanente</label><span class="hint">attivo anche da spento</span></div>
         <label class="switch"><input type="checkbox" id="swPermBt"><span></span></label></div>
       <div class="row venty-only"><div><label>Ottimizzazione corrente di carica</label></div>
@@ -251,7 +253,7 @@ kbd{font-family:var(--mono);background:var(--card);border-radius:4px;padding:1px
       <div class="row venty-only"><div><label>Limite tensione carica (~90%)</label></div>
         <label class="switch"><input type="checkbox" id="swChgLimit"><span></span></label></div>
       <div class="row"><div><label>Luminosità display</label></div>
-        <div class="stepper"><button data-step="bright:-10">−</button><span class="val" id="brightVal">--</span><button data-step="bright:10">+</button></div></div>
+        <div class="stepper"><button data-step="bright:-1">−</button><span class="val" id="brightVal">--</span><button data-step="bright:1">+</button></div></div>
       <div class="row venty-only"><div><label>Trova il mio Venty</label></div>
         <button class="pill" id="btnFind" style="background:var(--card2)">Trova</button></div>
     </div>
@@ -320,12 +322,10 @@ const store={
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 };
 let presets=store.get("vy_presets",[170,180,185,190,195,200,210]);
-state.curSrc=store.get("vy_src2",null);
 window.addEventListener("DOMContentLoaded",()=>{
   $("swChime").checked=store.get("vy_chime",true);
   $("swWake").checked=store.get("vy_wake",true);
 });
-state.srcLocked=store.get("vy_src_lock2",false);
 
 /* ---------- logging & diagnostics ---------- */
 function hex(buf){return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join(" ");}
@@ -347,9 +347,9 @@ function diag(msg){const d=$("diag");d.style.display="block";d.innerHTML+=msg+"<
 /* ---------- write queue ---------- */
 let chain=Promise.resolve();
 function enqueue(fn){chain=chain.then(fn).catch(e=>log("err","ERR "+e.message));return chain;}
-function writeFrame(bytes,label){
+function writeFrame(bytes,label,len=20){
   return enqueue(async()=>{
-    const buf=new ArrayBuffer(20);const v=new DataView(buf);
+    const buf=new ArrayBuffer(len);const v=new DataView(buf);
     for(const [i,val] of Object.entries(bytes))v.setUint8(+i,val&0xff);
     log("tx","TX "+(label||"")+"  "+hex(buf));
     if(state.control)await state.control.writeValue(buf);
@@ -409,7 +409,7 @@ async function initSequence(){
   await writeFrame({0:0x01},"status");
   await writeFrame({0:0x04},"extended");
   await writeFrame({0:0x05},"deviceInfo");
-  await writeFrame({0:0x06},"brightness");
+  await writeFrame({0:0x06},"brightness",7);
 }
 function startPolling(){
   clearInterval(state.pollTimer);
@@ -419,7 +419,6 @@ function startPolling(){
       volPoll(++tick);return;
     }
     writeFrame({0:0x01},"poll");
-    writeFrame({0:0x1d},"pollExt");
     if(++tick%30===0)writeFrame({0:0x04},"pollRuntime");
   },1000);
 }
@@ -451,25 +450,28 @@ function handleFrame(v){
   else if(cmd===0x04)parseExtended(v);
   else if(cmd===0x05)parseInfo(v);
   else if(cmd===0x06)parseBright(v);
-  scanCurrentTemp(cmd,v);
   render();
 }
 function parseStatus(v){
   if(v.byteLength<15)return;
   const flags=v.getUint8(14);
+  // temperatura live ufficiale: byte 2-3 u16LE /10 (qvap.js: updateCurrTemperatureMobile)
+  const raw=v.getUint16(2,true);
+  state.curTemp=(raw&0x8000)?null:(raw/10<=250?raw/10:null);
   state.status={
     targetTemp:Math.round(v.getUint16(4,true)/10),
     boost:v.getUint8(6),sboost:v.getUint8(7),
     battery:v.getUint8(8),
-    shutdown:v.getUint8(9)+(v.getUint8(10)<<8),
+    shutdown:v.getUint8(9)+v.getUint8(10),      // secondi residui (countdown, max ~120)
     heaterMode:v.getUint8(11),
     charging:v.getUint8(13)>0,
     isCelsius:!(flags&0x01),
     setpointReached:!!(flags&0x02),
     chgOpt:!!(flags&0x08),chgLimit:!!(flags&0x20),
-    vibration:!!(flags&0x40),
+    boostViz:!!(flags&0x40),
     permBt:v.byteLength>16?!!(v.getUint8(16)&0x01):false,
   };
+  if(state.curTemp!=null)pushHistory(state.curTemp,effectiveTarget());
 }
 function parseExtended(v){state.ext={
   runtime:v.getUint8(1)+(v.getUint8(2)<<8)+(v.getUint8(3)<<16),
@@ -477,56 +479,6 @@ function parseExtended(v){state.ext={
 function parseInfo(v){try{const d=new TextDecoder();
   state.info={serial:d.decode(v.buffer.slice(15,17))+d.decode(v.buffer.slice(9,15))};}catch(e){}}
 function parseBright(v){state.bright={brightness:v.getUint8(2),vibration:v.getUint8(5)};}
-
-/* ---------- current-temp auto-detect ----------
-   Watch every u16LE/10 field in frames 0x01 and 0x1D.
-   A field qualifies when it stays in 15–250 °C and shows ≥6 distinct values
-   (a real temperature moves; constants and targets don't).
-   Byte 4 of 0x01 (the target) is excluded. Manual override by clicking
-   a cell in the byte explorer wins over auto-detect. */
-function scanCurrentTemp(cmd,v){
-  if(cmd!==0x01&&cmd!==0x1d)return;
-  state.scanFrames=(state.scanFrames||0)+1;
-  for(let off=2;off+1<v.byteLength;off++){
-    if(cmd===0x01&&(off===4||off===5))continue;
-    const raw=v.getUint16(off,true);
-    const key=cmd+":"+off;
-    let c=state.candidates[key];
-    if(!c)c=state.candidates[key]={vals:new Set(),last:null,good:0,bad:0,sentinel:false};
-    // bit15 set (es. 0x8002 = "3277°C") = dato non disponibile, non squalifica
-    if(raw&0x8000){c.sentinel=true;c.last=null;continue;}
-    c.sentinel=false;
-    const val=raw/10;
-    c.last=val;
-    if(val>=15&&val<=250){c.good++;c.vals.add(Math.round(val*10));}
-    else c.bad++;
-  }
-  const eligible=([k,c])=>{
-    if(!(c.good>0&&c.bad<=c.good))return false;
-    // scarta gli echi statici del target (mostrerebbero il setpoint, non la temp reale)
-    if(c.vals.size<=1&&state.status&&c.last===state.status.targetTemp)return false;
-    return true;
-  };
-  // Auto-detect disabilitato: verificato che il Venty non trasmette la temp live.
-  // Resta solo la selezione manuale dal byte explorer (per firmware futuri).
-  doneScan();
-  function doneScan(){
-    if(state.curSrc){
-      const c=state.candidates[state.curSrc];
-      const off=!state.status||state.status.heaterMode===0;
-      state.curSentinel=off||!!(c&&c.sentinel);
-      state.curTemp=(!off&&c&&!c.sentinel&&c.last!=null&&c.last>=0&&c.last<=250)?c.last:null;
-    }
-    if(state.curTemp!=null&&state.status)
-      pushHistory(state.curTemp,effectiveTarget());
-  }
-}
-function setSrcManual(key){
-  state.curSrc=key;state.srcLocked=true;
-  store.set("vy_src2",key);store.set("vy_src_lock2",true);
-  log("rx","Sorgente temperatura attuale impostata manualmente: "+key);
-  render();
-}
 
 /* ---------- byte explorer ---------- */
 function trackFrame(cmd,bytes){
@@ -558,16 +510,14 @@ function renderByteTables(){
       if(i+1<n){
         const key=(+cmd)+":"+i;
         const u=(f.bytes[i]+(f.bytes[i+1]<<8))/10;
-        const src=state.curSrc===key?" src":"";
-        hU16+="<td class='u16"+src+"' data-key='"+key+"' title='usa come temp attuale'>"+(u<=6553?u.toFixed(1):"·")+"</td>";
+        const src="";
+        hU16+="<td class='u16'>"+(u<=6553?u.toFixed(1):"·")+"</td>";
       }else hU16+="<td>·</td>";
     }
     rIdx.innerHTML=hIdx;rHex.innerHTML=hHex;rDec.innerHTML=hDec;rU16.innerHTML=hU16;
   }
 }
-$("byteTables").addEventListener("click",e=>{
-  const k=e.target.dataset?.key;if(k)setSrcManual(k);
-});
+
 
 /* ---------- session chart ---------- */
 function pushHistory(cur,tgt){
@@ -583,7 +533,7 @@ function drawChart(){
   const h=state.history;
   if(h.length<2){
     ctx.font="22px 'Chakra Petch',sans-serif";ctx.fillStyle="#8b8e95";ctx.textAlign="center";
-    ctx.fillText("grafico disponibile solo con temp live (non trasmessa dal Venty)",cv.width/2,cv.height/2);
+    ctx.fillText("in attesa di dati temperatura…",cv.width/2,cv.height/2);
     ctx.textAlign="start";return;
   }
   const t0=h[0].t,t1=h[h.length-1].t,span=Math.max(t1-t0,30000);
@@ -711,10 +661,12 @@ function setUnit(f){writeFrame({0:1,1:128,14:f?1:0,15:1},"unit "+(f?"F":"C"));}
 function setChgOpt(on){writeFrame({0:1,1:128,14:on?0x08:0,15:8},"chgOpt "+on);}
 function setChgLimit(on){writeFrame({0:1,1:128,14:on?0x20:0,15:32},"chgLimit "+on);}
 function setPermBt(on){writeFrame({0:1,1:128,16:on?1:0,17:1},"permBT "+on);}
-function setVibration(on){writeFrame({0:1,1:128,14:on?0x40:0,15:0x40},"vibration "+on);}
-function setBrightness(x){x=clamp(x,0,100);if(state.bright)state.bright.brightness=x;render();
-  if(state.deviceType==="volcano"){volWrite(state.vol.bright,[x&0xff,(x>>8)&0xff],"brightness "+x);return;}
-  writeFrame({0:6,1:1,2:x},"brightness "+x);writeFrame({0:6},"brightnessRead");}
+function setVibration(on){if(state.bright)state.bright.vibration=on?1:0;writeFrame({0:6,1:1<<3,5:on?1:0},"vibration "+on,7);}
+function setBrightness(x){
+  if(state.deviceType==="volcano"){x=clamp(x,0,100);if(state.bright)state.bright.brightness=x;render();
+    volWrite(state.vol.bright,[x&0xff,(x>>8)&0xff],"brightness "+x);return;}
+  x=clamp(x,1,9);if(state.bright)state.bright.brightness=x;render();
+  writeFrame({0:6,1:1,2:x},"brightness "+x,7);writeFrame({0:6},"brightnessRead",7);}
 function findMy(){writeFrame({0:0x0d,1:0x01},"findMyDevice");}
 function optimistic(k,val){if(state.status){state.status[k]=val;render();}}
 
@@ -774,14 +726,15 @@ function render(){
     bf.className="batt-fill"+(s.charging?" charging":s.battery<=20?" low":s.battery<=50?" mid":"");
     $("chgState").textContent=s.charging?"in carica ⚡":"a batteria";
   }
-  $("shutdownLbl").textContent=s.shutdown?Math.round(s.shutdown/60)+" min":"--";
+  $("shutdownLbl").textContent=state.deviceType==="volcano"?(s.shutdown?Math.round(s.shutdown/60)+" min":"--"):(s.heaterMode>0?s.shutdown+" s":"--");
   if(state.ext){$("runtimeLbl").textContent=(state.ext.runtime/60).toFixed(1)+" h";
     $("chargeTimeLbl").textContent=(state.ext.chargeTime/60).toFixed(1)+" h";}
   if(state.info)$("devSerial").textContent=state.info.serial;
-  if(state.bright)$("brightVal").textContent=state.bright.brightness+"%";
+  if(state.bright)$("brightVal").textContent=state.deviceType==="volcano"?state.bright.brightness+"%":state.bright.brightness+" / 9";
 
   $("swFahrenheit").checked=!s.isCelsius;
-  $("swVibration").checked=s.vibration;
+  $("swVibration").checked=state.bright?!!state.bright.vibration:false;
+  $("swBoostViz").checked=!!s.boostViz;
   $("swPermBt").checked=s.permBt;
   $("swChgOpt").checked=s.chgOpt;
   $("swChgLimit").checked=s.chgLimit;
@@ -819,7 +772,7 @@ $("tgtSlider").onchange=e=>setTarget(+e.target.value);
 $("presets").addEventListener("click",e=>{const p=e.target.dataset?.preset;if(p)setTarget(+p);});
 document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{
   const [what,d]=b.dataset.step.split(":");const n=+d;const s=state.status;
-  if(what==="bright"){setBrightness((state.bright?.brightness??50)+n);return;}
+  if(what==="bright"){const step=state.deviceType==="volcano"?n*10:n;setBrightness((state.bright?.brightness??(state.deviceType==="volcano"?50:5))+step);return;}
   if(!s)return;
   if(what==="tgt")setTarget(s.targetTemp+n);
   else if(what==="boost")setBoost(s.boost+n);
@@ -827,6 +780,7 @@ document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{
 });
 $("swFahrenheit").onchange=e=>setUnit(e.target.checked);
 $("swVibration").onchange=e=>setVibration(e.target.checked);
+$("swBoostViz").onchange=e=>writeFrame({0:1,1:128,14:e.target.checked?0x40:0,15:0x40},"boostViz "+e.target.checked);
 $("swPermBt").onchange=e=>setPermBt(e.target.checked);
 $("swChgOpt").onchange=e=>setChgOpt(e.target.checked);
 $("swChgLimit").onchange=e=>setChgLimit(e.target.checked);
