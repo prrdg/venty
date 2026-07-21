@@ -68,12 +68,32 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
 .heat-state.sboost{color:var(--sboost)}
 .heat-state.ready{color:var(--ok)}
 
+ #btnPower{width:100%;margin-top:18px;padding:15px;border-radius:16px;background:var(--heat);color:#140b05;font-size:14px;font-weight:600;letter-spacing:.06em;transition:.2s}
+#btnPower:active{transform:scale(.98)}
+#btnPower.on{background:var(--card2);color:var(--txt)}
+.boosts{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;margin-top:12px}
+.boost-card{position:relative;border-radius:18px;padding:16px 12px 14px;display:flex;flex-direction:column;align-items:center;gap:10px;overflow:hidden;isolation:isolate}
+.boost-card::before{content:"";position:absolute;inset:0;z-index:-1;opacity:.14;transition:opacity .3s}
+.boost-card.boost::before{background:radial-gradient(circle at 50% 0%,var(--boost),transparent 70%)}
+.boost-card.sboost::before{background:radial-gradient(circle at 50% 0%,var(--sboost),transparent 70%)}
+.boost-card{border:1px solid var(--hair);background:var(--card2)}
+.boost-lbl{font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+.boost-card.boost .boost-lbl{color:var(--boost)}
+.boost-card.sboost .boost-lbl{color:var(--sboost)}
+.boost-set{display:flex;align-items:center;gap:10px}
+.boost-btn{width:34px;height:34px;border-radius:11px;background:rgba(255,255,255,.05);font-size:17px;color:var(--txt);transition:.15s;display:flex;align-items:center;justify-content:center}
+.boost-btn:hover{background:rgba(255,255,255,.11)}
+.boost-btn:active{transform:scale(.9)}
+.boost-val{font-family:var(--mono);font-size:26px;font-weight:500;font-variant-numeric:tabular-nums;min-width:52px;text-align:center;line-height:1}
+.boost-val small{font-size:12px;color:var(--dim);margin-left:1px}
+.boost-eff{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.boost-card.active::before{opacity:.4}
+.boost-card.active{border-color:currentColor}
+.boost-card.boost.active{box-shadow:0 0 0 1px var(--boost) inset}
+.boost-card.sboost.active{box-shadow:0 0 0 1px var(--sboost) inset}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--card2);border-radius:99px;padding:4px;gap:2px;width:100%;margin-top:18px}
 .seg button{padding:12px 4px;border-radius:99px;font-size:12.5px;font-weight:600;letter-spacing:.08em;color:var(--dim);transition:.2s}
 .seg button:active{transform:scale(.97)}
-#btnHeat.active{background:var(--heat);color:#140b05}
-#btnBoost.active{background:var(--boost);color:#140b05}
-#btnSBoost.active{background:var(--sboost);color:#fff}
 #btnOff{width:100%;margin-top:10px;padding:11px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);transition:.2s}
 #btnOff:hover{color:var(--txt)}
 
@@ -176,12 +196,27 @@ kbd{font-family:var(--mono);background:var(--card);border-radius:4px;padding:1px
           <div class="heat-state" id="heatState">OFF</div>
         </div>
       </div>
-      <div class="seg">
-        <button id="btnHeat">HEAT</button>
-        <button id="btnBoost">BOOST</button>
-        <button id="btnSBoost">S-BOOST</button>
+      <button id="btnPower">Accendi riscaldatore</button>
+      <div class="boosts">
+        <div class="boost-card boost">
+          <span class="boost-lbl">Boost</span>
+          <div class="boost-set">
+            <button class="boost-btn" data-step="boost:-1">−</button>
+            <div class="boost-val"><span id="boostVal">--</span><small>°C</small></div>
+            <button class="boost-btn" data-step="boost:1">+</button>
+          </div>
+          <span class="boost-eff" id="boostEff"></span>
+        </div>
+        <div class="boost-card sboost">
+          <span class="boost-lbl">Superboost</span>
+          <div class="boost-set">
+            <button class="boost-btn" data-step="sboost:-1">−</button>
+            <div class="boost-val"><span id="sboostVal">--</span><small>°C</small></div>
+            <button class="boost-btn" data-step="sboost:1">+</button>
+          </div>
+          <span class="boost-eff" id="sboostEff"></span>
+        </div>
       </div>
-      <button id="btnOff">Spegni riscaldatore</button>
     </div>
   </div>
 
@@ -200,18 +235,6 @@ kbd{font-family:var(--mono);background:var(--card);border-radius:4px;padding:1px
       </div>
       <input type="range" id="tgtSlider" min="40" max="210" step="1" value="185">
       <div class="presets" id="presets"></div>
-      <div class="row" style="margin-top:10px">
-        <div><label>Offset boost</label></div>
-        <div class="stepper">
-          <button data-step="boost:-1">−</button><span class="val" id="boostVal">--</span><button data-step="boost:1">+</button>
-        </div>
-      </div>
-      <div class="row">
-        <div><label>Offset superboost</label></div>
-        <div class="stepper">
-          <button data-step="sboost:-1">−</button><span class="val" id="sboostVal">--</span><button data-step="sboost:1">+</button>
-        </div>
-      </div>
     </div>
 
     <div class="card">
@@ -240,8 +263,6 @@ kbd{font-family:var(--mono);background:var(--card);border-radius:4px;padding:1px
         <label class="switch"><input type="checkbox" id="swChgOpt"><span></span></label></div>
       <div class="row"><div><label>Limite tensione carica (~90%)</label></div>
         <label class="switch"><input type="checkbox" id="swChgLimit"><span></span></label></div>
-      <div class="row"><div><label>Timeout boost automatico</label><span class="hint">se OFF, boost e superboost restano finché non li cambi tu</span></div>
-        <label class="switch"><input type="checkbox" id="swBoostTimeout"><span></span></label></div>
       <div class="row"><div><label>Luminosità display</label></div>
         <div class="stepper"><button data-step="bright:-1">−</button><span class="val" id="brightVal">--</span><button data-step="bright:1">+</button></div></div>
       <div class="row"><div><label>Trova il mio Venty</label></div>
@@ -352,16 +373,6 @@ async function connect(){
     $("btnConnect").disabled=true;$("btnDisconnect").disabled=false;
     startPolling();
     acquireWakeLock();
-    // aspetta che il firmware sia noto, poi (se supportato) disattiva il ritorno automatico
-    let tries=0;
-    const forceOff=()=>{
-      if(state.boostTimeoutSupported===false){log("rx","Timeout boost non disattivabile su questo firmware");return;}
-      if(state.firmware==null && tries++<6){setTimeout(forceOff,500);return;}
-      state.boostTimeout=false;$("swBoostTimeout").checked=false;
-      writeFrame({0:6,1:1<<4,6:0},"boostTimeout auto-off",7);
-      log("rx","Timeout boost disattivato (fw "+(state.firmware||"?")+")");
-    };
-    setTimeout(forceOff,1200);
   }catch(e){
     log("err","Connect: "+e.name+" — "+e.message);
     setConn("non connesso");
@@ -444,13 +455,11 @@ function parseFirmware(v){
     // che S&B confronta (firmwareValueArrayConnectedQvap[2]). Per "V01.11" -> 11.
     const m=s.match(/(\d+)\.?(\d+)$/);
     state.fwMajor=m?parseInt(m[2],10):null;
-    state.boostTimeoutSupported = state.fwMajor!=null ? state.fwMajor>=8 : true;
   }catch(e){}
 }
 function parseInfo(v){try{const d=new TextDecoder();  state.info={serial:d.decode(v.buffer.slice(15,17))+d.decode(v.buffer.slice(9,15))};}catch(e){}}
 function parseBright(v){
   const b=v.getUint8(2),vib=v.getUint8(5);
-  if(v.byteLength>6)state.boostTimeout=v.getUint8(6)>0;
   if(Date.now()-(state._brightSetAt||0)<2500)return; // ignora eco vecchia dopo una modifica utente
   state.bright={brightness:b,vibration:vib};
 }
@@ -505,7 +514,7 @@ function setTarget(c){
   writeFrame({0:1,1:2,4:t&0xff,5:(t>>8)&0xff},"setTarget "+c);}
 function setBoost(x){x=clamp(x,0,50);optimistic("boost",x);writeFrame({0:1,1:4,6:x},"setBoost "+x);}
 function setSBoost(x){x=clamp(x,0,60);optimistic("sboost",x);writeFrame({0:1,1:8,7:x},"setSBoost "+x);}
-function setHeater(m){optimistic("heaterMode",m);writeFrame({0:1,1:32,11:m},"heaterMode "+m);}
+function setHeater(on){optimistic("heaterMode",on?1:0);writeFrame({0:1,1:32,11:on?1:0},"heater "+(on?"ON":"OFF"));}
 function setChgOpt(on){writeFrame({0:1,1:128,14:on?0x08:0,15:8},"chgOpt "+on);}
 function setChgLimit(on){writeFrame({0:1,1:128,14:on?0x20:0,15:32},"chgLimit "+on);}
 function setPermBt(on){writeFrame({0:1,1:128,16:on?1:0,17:1},"permBT "+on);}
@@ -536,8 +545,12 @@ function render(){
   $("tgtVal").textContent=fmt(s.targetTemp)+unit;
   $("tgtSlider").max=false?230:210;
   $("tgtSlider").value=s.targetTemp;
-  $("boostVal").textContent="+"+(s.isCelsius?s.boost:Math.round(toF(s.boost)-32))+"°";
-  $("sboostVal").textContent="+"+(s.isCelsius?s.sboost:Math.round(toF(s.sboost)-32))+"°";
+  $("boostVal").textContent="+"+s.boost;
+  $("sboostVal").textContent="+"+s.sboost;
+  $("boostEff").textContent="→ "+Math.min(210,s.targetTemp+s.boost)+"°";
+  $("sboostEff").textContent="→ "+Math.min(210,s.targetTemp+s.sboost)+"°";
+  document.querySelector(".boost-card.boost").classList.toggle("active",s.heaterMode===2);
+  document.querySelector(".boost-card.sboost").classList.toggle("active",s.heaterMode===3);
 
   let ratio;const span=false?190:170;
   if(state.curTemp!=null)ratio=clamp((state.curTemp-40)/span,0,1);
@@ -551,19 +564,15 @@ function render(){
 
   const hs=$("heatState");hs.className="heat-state";
   const air="";
-  if(s.heaterMode===0)hs.textContent="OFF"+air;
-  else if(s.setpointReached){hs.textContent="READY"+air;hs.classList.add("ready");}
-  else if(s.heaterMode===1){hs.textContent="HEATING"+air;hs.classList.add("on");}
-  else if(s.heaterMode===2){hs.textContent="BOOST";hs.classList.add("boost");}
-  else{hs.textContent="SUPERBOOST";hs.classList.add("sboost");}
+  {const on=s.heaterMode>0;const pb=$("btnPower");
+   if(pb){pb.textContent=on?"Spegni riscaldatore":"Accendi riscaldatore";pb.classList.toggle("on",on);}}
+  if(s.heaterMode===0)hs.textContent="SPENTO";
+  else if(s.heaterMode===1){hs.textContent=s.setpointReached?"PRONTO":"IN RISCALDAMENTO";hs.classList.add(s.setpointReached?"ready":"on");}
+  else if(s.heaterMode===2){hs.textContent="BOOST (pulsante)";hs.classList.add("boost");}
+  else{hs.textContent="SUPERBOOST (pulsante)";hs.classList.add("sboost");}
   if(s.setpointReached&&!state.wasReady&&s.heaterMode>0){document.title="✅ READY — Venty";}
   if(!s.setpointReached)document.title="VENTY Panel";
   state.wasReady=s.setpointReached;
-
-  $("btnHeat").classList.toggle("active",false?state.volSt.heat:s.heaterMode===1);
-  $("btnBoost").classList.toggle("active",false?state.volSt.pump:s.heaterMode===2);
-  $("btnSBoost").classList.toggle("active",!false&&s.heaterMode===3);
-
   if(s.battery==null){
     $("battPct").textContent="∞";
     const bf=$("battFill");bf.style.width="100%";bf.className="batt-fill charging";
@@ -582,15 +591,7 @@ function render(){
 
   
   $("swVibration").checked=state.bright?!!state.bright.vibration:false;
-  $("swBoostTimeout").checked=!!state.boostTimeout;
   if(state.firmware)$("devFw").textContent=state.firmware;
-  {const sup=state.boostTimeoutSupported!==false;
-   $("swBoostTimeout").disabled=!sup;
-   const row=$("swBoostTimeout").closest(".row");
-   if(row){const h=row.querySelector(".hint");
-     if(h)h.textContent=sup?"se OFF, boost e superboost restano finché non li cambi tu"
-       :"il tuo firmware ("+(state.firmware||"?")+") non permette di disattivarlo via Bluetooth — è gestito dal Venty stesso";
-     row.style.opacity=sup?"1":".55";}}
   $("swPermBt").checked=s.permBt;
   $("swChgOpt").checked=s.chgOpt;
   $("swChgLimit").checked=s.chgLimit;
@@ -618,11 +619,8 @@ renderPresets();
 /* ---------- UI wiring ---------- */
 $("btnConnect").onclick=connect;
 $("btnDisconnect").onclick=disconnect;
-$("btnHeat").onclick=()=>setHeater(1);
-$("btnBoost").onclick=()=>setHeater(2);
-$("btnSBoost").onclick=()=>setHeater(3);
-$("btnOff").onclick=()=>setHeater(0);
 $("btnFind").onclick=findMy;
+$("btnPower").onclick=()=>setHeater(!(state.status&&state.status.heaterMode>0));
 $("tgtSlider").oninput=e=>{$("tgtVal").textContent=e.target.value+"°";};
 $("tgtSlider").onchange=e=>setTarget(+e.target.value);
 $("presets").addEventListener("click",e=>{const p=e.target.dataset?.preset;if(p)setTarget(+p);});
@@ -636,7 +634,6 @@ document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{
 });
 
 $("swVibration").onchange=e=>setVibration(e.target.checked);
-$("swBoostTimeout").onchange=e=>{if(state.boostTimeoutSupported===false){e.target.checked=false;return;}state.boostTimeout=e.target.checked;writeFrame({0:6,1:1<<4,6:e.target.checked?1:0},"boostTimeout "+e.target.checked,7);};
 $("swPermBt").onchange=e=>setPermBt(e.target.checked);
 $("swChgOpt").onchange=e=>setChgOpt(e.target.checked);
 $("swChgLimit").onchange=e=>setChgLimit(e.target.checked);
