@@ -76,7 +76,6 @@ header{display:flex;align-items:center;justify-content:space-between;margin-bott
 #btnSBoost.active{background:var(--sboost);color:#fff}
 #btnOff{width:100%;margin-top:10px;padding:11px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);transition:.2s}
 #btnOff:hover{color:var(--txt)}
-#chart{width:100%;height:96px;margin-top:20px;border-radius:14px;background:var(--card2)}
 
 /* rows */
 .row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid var(--hair)}
@@ -138,9 +137,6 @@ details.log summary::-webkit-details-marker{display:none}
 .explain{color:var(--dim);font-size:11px;padding-bottom:8px;font-family:var(--ui)}
 .footnote{color:var(--dim);font-size:11px;margin-top:18px;line-height:1.7}
 kbd{font-family:var(--mono);background:var(--card);border-radius:4px;padding:1px 5px;font-size:10px}
-.volcano .venty-only{display:none}
-.volcano #btnSBoost{display:none}
-.volcano .seg{grid-template-columns:repeat(2,1fr)}
 @media(max-width:430px){
   body{padding:18px 14px 32px}
   .card{padding:20px}
@@ -176,7 +172,6 @@ kbd{font-family:var(--mono);background:var(--card);border-radius:4px;padding:1px
         </svg>
         <div class="ring-center">
           <div class="cur-temp"><span id="curTemp">--</span><span class="unit" id="unitLbl">°C</span></div>
-          <span id="curSrc"></span>
           <div class="tgt-line">target <b id="tgtTempLbl">--</b><span id="effLbl"></span></div>
           <div class="heat-state" id="heatState">OFF</div>
         </div>
@@ -187,7 +182,6 @@ kbd{font-family:var(--mono);background:var(--card);border-radius:4px;padding:1px
         <button id="btnSBoost">S-BOOST</button>
       </div>
       <button id="btnOff">Spegni riscaldatore</button>
-      <canvas id="chart" width="800" height="192"></canvas>
     </div>
   </div>
 
@@ -206,13 +200,13 @@ kbd{font-family:var(--mono);background:var(--card);border-radius:4px;padding:1px
       </div>
       <input type="range" id="tgtSlider" min="40" max="210" step="1" value="185">
       <div class="presets" id="presets"></div>
-      <div class="row venty-only" style="margin-top:10px">
+      <div class="row" style="margin-top:10px">
         <div><label>Offset boost</label></div>
         <div class="stepper">
           <button data-step="boost:-1">−</button><span class="val" id="boostVal">--</span><button data-step="boost:1">+</button>
         </div>
       </div>
-      <div class="row venty-only">
+      <div class="row">
         <div><label>Offset superboost</label></div>
         <div class="stepper">
           <button data-step="sboost:-1">−</button><span class="val" id="sboostVal">--</span><button data-step="sboost:1">+</button>
@@ -236,25 +230,21 @@ kbd{font-family:var(--mono);background:var(--card);border-radius:4px;padding:1px
 
     <div class="card">
       <h2>Impostazioni</h2>
-      <div class="row venty-only"><div><label>Unità Fahrenheit</label></div>
-        <label class="switch"><input type="checkbox" id="swFahrenheit"><span></span></label></div>
-      <div class="row venty-only"><div><label>Vibrazione</label></div>
+      <div class="row"><div><label>Vibrazione</label></div>
         <label class="switch"><input type="checkbox" id="swVibration"><span></span></label></div>
-      <div class="row"><div><label>Suono a temperatura</label></div>
-        <label class="switch"><input type="checkbox" id="swChime" checked><span></span></label></div>
       <div class="row"><div><label>Schermo sempre acceso</label></div>
         <label class="switch"><input type="checkbox" id="swWake" checked><span></span></label></div>
-      <div class="row venty-only"><div><label>Visualizzazione boost</label><span class="hint">mostra la temperatura effettiva in boost sul display</span></div>
-        <label class="switch"><input type="checkbox" id="swBoostViz"><span></span></label></div>
-      <div class="row venty-only"><div><label>Bluetooth permanente</label><span class="hint">attivo anche da spento</span></div>
+      <div class="row"><div><label>Bluetooth permanente</label><span class="hint">attivo anche da spento</span></div>
         <label class="switch"><input type="checkbox" id="swPermBt"><span></span></label></div>
-      <div class="row venty-only"><div><label>Ottimizzazione corrente di carica</label></div>
+      <div class="row"><div><label>Ottimizzazione corrente di carica</label></div>
         <label class="switch"><input type="checkbox" id="swChgOpt"><span></span></label></div>
-      <div class="row venty-only"><div><label>Limite tensione carica (~90%)</label></div>
+      <div class="row"><div><label>Limite tensione carica (~90%)</label></div>
         <label class="switch"><input type="checkbox" id="swChgLimit"><span></span></label></div>
+      <div class="row"><div><label>Timeout boost automatico</label><span class="hint">se OFF, boost e superboost restano finché non li cambi tu</span></div>
+        <label class="switch"><input type="checkbox" id="swBoostTimeout"><span></span></label></div>
       <div class="row"><div><label>Luminosità display</label></div>
         <div class="stepper"><button data-step="bright:-1">−</button><span class="val" id="brightVal">--</span><button data-step="bright:1">+</button></div></div>
-      <div class="row venty-only"><div><label>Trova il mio Venty</label></div>
+      <div class="row"><div><label>Trova il mio Venty</label></div>
         <button class="pill" id="btnFind" style="background:var(--card2)">Trova</button></div>
     </div>
 
@@ -280,9 +270,7 @@ kbd{font-family:var(--mono);background:var(--card);border-radius:4px;padding:1px
   <div id="logBox"></div>
 </details>
 
-<p class="footnote">
-App non ufficiale · Venty + Volcano Hybrid · scorciatoie <kbd>H</kbd> heat · <kbd>B</kbd> boost/aria · <kbd>S</kbd> superboost · <kbd>O</kbd> off · <kbd>↑↓</kbd> ±1° · <kbd>PgUp/PgDn</kbd> ±5°
-</p>
+<p class="footnote">App non ufficiale · solo Venty · protocollo da qvap.js ufficiale.</p>
 
 <script>
 
@@ -296,24 +284,14 @@ App non ufficiale · Venty + Volcano Hybrid · scorciatoie <kbd>H</kbd> heat · 
 
 const SVC="00000000-5354-4f52-5a26-4249434b454c";
 const CHAR="00000001-5354-4f52-5a26-4249434b454c";
-// Volcano Hybrid: characteristic dedicate (da APK ufficiale 3.4.0 + reactive-volcano-app)
-const V_STATE="10100000-5354-4f52-5a26-4249434b454c";
-const V_CTRL ="10110000-5354-4f52-5a26-4249434b454c";
-const VC={cur:"10110001-5354-4f52-5a26-4249434b454c",tgt:"10110003-5354-4f52-5a26-4249434b454c",
- heatOn:"1011000f-5354-4f52-5a26-4249434b454c",heatOff:"10110010-5354-4f52-5a26-4249434b454c",
- pumpOn:"10110013-5354-4f52-5a26-4249434b454c",pumpOff:"10110014-5354-4f52-5a26-4249434b454c",
- shutoff:"1011000d-5354-4f52-5a26-4249434b454c",hours:"10110015-5354-4f52-5a26-4249434b454c",
- mins:"10110016-5354-4f52-5a26-4249434b454c",bright:"10110005-5354-4f52-5a26-4249434b454c",
- serial:"10100008-5354-4f52-5a26-4249434b454c",fw:"10100003-5354-4f52-5a26-4249434b454c",
- act:"1010000c-5354-4f52-5a26-4249434b454c"};
+
 const $=id=>document.getElementById(id);
 
-const state={device:null,control:null,connected:false,demo:false,deviceType:null,vol:null,volSt:{heat:false,pump:false},
+const state={device:null,control:null,connected:false,demo:false,
   status:null,ext:null,info:null,bright:null,pollTimer:null,
-  curTemp:null,curSrc:null,srcLocked:false,
+  curTemp:null,
   frames:{},          // cmd -> {bytes:Uint8Array, changed:Set, t}
   candidates:{},      // "cmd:off" -> {vals:Set, last, n}
-  history:[],         // {t, cur, tgt}
   wasReady:false,wakeLock:null};
 
 /* ---------- storage (guarded: works on localhost, degrades elsewhere) ---------- */
@@ -323,8 +301,7 @@ const store={
 };
 let presets=store.get("vy_presets",[170,180,185,190,195,200,210]);
 window.addEventListener("DOMContentLoaded",()=>{
-  $("swChime").checked=store.get("vy_chime",true);
-  $("swWake").checked=store.get("vy_wake",true);
+    $("swWake").checked=store.get("vy_wake",true);
 });
 
 /* ---------- logging & diagnostics ---------- */
@@ -336,14 +313,6 @@ function log(cls,msg){
   if(box.children.length>400)box.removeChild(box.firstChild);
   box.scrollTop=box.scrollHeight;
 }
-function diag(msg){const d=$("diag");d.style.display="block";d.innerHTML+=msg+"<br>";}
-(async function checkEnv(){
-  if(location.protocol==="file:")diag("⚠️ Aperto da <b>file://</b> — se la connessione fallisce: <code>python -m http.server 8000</code> nella cartella, poi <code>http://localhost:8000/venty-panel.html</code>.");
-  if(window.self!==window.top)diag("❌ Sei in un <b>iframe</b> (anteprima): Bluetooth bloccato. Scarica il file e aprilo in Chrome.");
-  if(!navigator.bluetooth){diag("❌ <b>navigator.bluetooth assente</b>. Serve Chrome/Edge/Brave. Su Brave abilita <code>brave://flags/#brave-web-bluetooth-api</code>.");return;}
-  try{if(!await navigator.bluetooth.getAvailability())diag("❌ Nessun adapter Bluetooth acceso sul PC.");}catch(e){}
-})();
-
 /* ---------- write queue ---------- */
 let chain=Promise.resolve();
 function enqueue(fn){chain=chain.then(fn).catch(e=>log("err","ERR "+e.message));return chain;}
@@ -359,13 +328,10 @@ function writeFrame(bytes,label,len=20){
 /* ---------- connection ---------- */
 async function connect(){
   try{
-    if(!navigator.bluetooth){diag("❌ Web Bluetooth non disponibile qui.");return;}
+    if(!navigator.bluetooth){return;}
     setConn("Ricerca…");
-    const allSvcs=[SVC,V_STATE,V_CTRL];
-    const opts=state.allNext
-      ?{acceptAllDevices:true,optionalServices:allSvcs}
-      :{filters:[{namePrefix:"S&B"},{namePrefix:"STORZ"},{namePrefix:"VOLCANO"}],optionalServices:allSvcs};
-    state.device=await navigator.bluetooth.requestDevice(opts);
+    const opts={filters:[{namePrefix:"S&B"}],optionalServices:[SVC]};
+        state.device=await navigator.bluetooth.requestDevice(opts);
     state.device.addEventListener("gattserverdisconnected",onDisconnected);
     setConn("Connessione…");
     let server=null,lastErr=null;
@@ -374,33 +340,22 @@ async function connect(){
       catch(e){lastErr=e;log("err","GATT connect "+i+"/3: "+e.message);await new Promise(r=>setTimeout(r,800));}
     }
     if(!server)throw lastErr;
-    let svc=null;
-    try{svc=await server.getPrimaryService(SVC);}catch(e){}
-    if(svc){
-      state.deviceType="venty";
-      state.control=await svc.getCharacteristic(CHAR);
-      state.control.addEventListener("characteristicvaluechanged",onNotify);
-      await state.control.startNotifications();
-      await initSequence();
-    }else{
-      state.deviceType="volcano";
-      log("rx","Venty service assente → provo Volcano Hybrid");
-      const ctrl=await server.getPrimaryService(V_CTRL);
-      const stSvc=await server.getPrimaryService(V_STATE);
-      await volcanoInit(ctrl,stSvc);
-    }
+    const svc=await server.getPrimaryService(SVC);
+    state.control=await svc.getCharacteristic(CHAR);
+    state.control.addEventListener("characteristicvaluechanged",onNotify);
+    await state.control.startNotifications();
+    await initSequence();
     state.connected=true;
     $("devName").textContent=state.device.name||"?";
     setConn("Connesso",true);
     $("btnConnect").disabled=true;$("btnDisconnect").disabled=false;
     startPolling();
     acquireWakeLock();
+    setTimeout(()=>{if(state.boostTimeout){state.boostTimeout=false;$("swBoostTimeout").checked=false;
+      writeFrame({0:6,1:1<<4,6:0},"boostTimeout auto-off",7);}},1500);
   }catch(e){
     log("err","Connect: "+e.name+" — "+e.message);
-    setConn("Non connesso");
-    if(e.name==="NotFoundError"){state.allNext=true;diag("Device non trovato o non selezionato. Verifica che sia acceso e che l\'app ufficiale sia chiusa, poi ripremi Connetti: al prossimo tentativo mostro tutti i dispositivi.");}
-    else if(e.name==="SecurityError")diag("SecurityError: servi il file su localhost (vedi sopra).");
-    else if(e.name==="NetworkError")diag("NetworkError GATT: il Venty è già connesso ad altro (PWA ufficiale o telefono). Disconnetti tutto, riavvia il Venty, riprova.");
+    setConn("non connesso");
   }
 }
 async function initSequence(){
@@ -415,9 +370,6 @@ function startPolling(){
   clearInterval(state.pollTimer);
   let tick=0;
   state.pollTimer=setInterval(()=>{
-    if(state.deviceType==="volcano"){
-      volPoll(++tick);return;
-    }
     writeFrame({0:0x01},"poll");
     if(++tick%30===0)writeFrame({0:0x04},"pollRuntime");
   },1000);
@@ -426,8 +378,7 @@ function disconnect(){
   if(state.device?.gatt?.connected)state.device.gatt.disconnect();else onDisconnected();
 }
 function onDisconnected(){
-  state.deviceType=null;state.vol=null;document.body.classList.remove("volcano");
-  clearInterval(state.pollTimer);
+    clearInterval(state.pollTimer);
   state.connected=false;state.control=null;
   releaseWakeLock();
   setConn("Non connesso");
@@ -471,14 +422,18 @@ function parseStatus(v){
     boostViz:!!(flags&0x40),
     permBt:v.byteLength>16?!!(v.getUint8(16)&0x01):false,
   };
-  if(state.curTemp!=null)pushHistory(state.curTemp,effectiveTarget());
 }
 function parseExtended(v){state.ext={
   runtime:v.getUint8(1)+(v.getUint8(2)<<8)+(v.getUint8(3)<<16),
   chargeTime:v.getUint8(4)+(v.getUint8(5)<<8)+(v.getUint8(6)<<16)};}
 function parseInfo(v){try{const d=new TextDecoder();
   state.info={serial:d.decode(v.buffer.slice(15,17))+d.decode(v.buffer.slice(9,15))};}catch(e){}}
-function parseBright(v){state.bright={brightness:v.getUint8(2),vibration:v.getUint8(5)};}
+function parseBright(v){
+  const b=v.getUint8(2),vib=v.getUint8(5);
+  if(v.byteLength>6)state.boostTimeout=v.getUint8(6)>0;
+  if(Date.now()-(state._brightSetAt||0)<2500)return; // ignora eco vecchia dopo una modifica utente
+  state.bright={brightness:b,vibration:vib};
+}
 
 /* ---------- byte explorer ---------- */
 function trackFrame(cmd,bytes){
@@ -519,179 +474,52 @@ function renderByteTables(){
 }
 
 
-/* ---------- session chart ---------- */
-function pushHistory(cur,tgt){
-  const h=state.history,now=Date.now();
-  if(h.length&&now-h[h.length-1].t<900)return;
-  h.push({t:now,cur,tgt});
-  const cutoff=now-10*60*1000;
-  while(h.length&&h[0].t<cutoff)h.shift();
-}
-function drawChart(){
-  const cv=$("chart"),ctx=cv.getContext("2d");
-  ctx.clearRect(0,0,cv.width,cv.height);
-  const h=state.history;
-  if(h.length<2){
-    ctx.font="22px 'Chakra Petch',sans-serif";ctx.fillStyle="#8b8e95";ctx.textAlign="center";
-    ctx.fillText("in attesa di dati temperatura…",cv.width/2,cv.height/2);
-    ctx.textAlign="start";return;
-  }
-  const t0=h[0].t,t1=h[h.length-1].t,span=Math.max(t1-t0,30000);
-  let lo=Infinity,hi=-Infinity;
-  for(const p of h){lo=Math.min(lo,p.cur,p.tgt);hi=Math.max(hi,p.cur,p.tgt);}
-  lo=Math.floor(lo/10)*10-5;hi=Math.ceil(hi/10)*10+5;
-  const X=t=>30+(t-t0)/span*(cv.width-40);
-  const Y=v=>cv.height-16-(v-lo)/(hi-lo)*(cv.height-30);
-  ctx.font="20px JetBrains Mono";ctx.fillStyle="#8b8e95";
-  ctx.fillText(hi+"°",2,Y(hi)+7);ctx.fillText(lo+"°",2,Y(lo)+7);
-  ctx.strokeStyle="#2a2d33";ctx.setLineDash([4,5]);ctx.beginPath();
-  ctx.moveTo(X(t0),Y(h[h.length-1].tgt));ctx.lineTo(X(t1),Y(h[h.length-1].tgt));ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.strokeStyle="#ff6a13";ctx.lineWidth=3;ctx.beginPath();
-  h.forEach((p,i)=>{i?ctx.lineTo(X(p.t),Y(p.cur)):ctx.moveTo(X(p.t),Y(p.cur));});
-  ctx.stroke();ctx.lineWidth=1;
-}
-
-/* ---------- chime & wake lock ---------- */
-function chime(){
-  if(!$("swChime").checked)return;
-  try{
-    const ac=new (window.AudioContext||window.webkitAudioContext)();
-    [660,880].forEach((f,i)=>{
-      const o=ac.createOscillator(),g=ac.createGain();
-      o.frequency.value=f;o.connect(g);g.connect(ac.destination);
-      g.gain.setValueAtTime(.15,ac.currentTime+i*.18);
-      g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+i*.18+.35);
-      o.start(ac.currentTime+i*.18);o.stop(ac.currentTime+i*.18+.4);
-    });
-  }catch(e){}
-}
-async function acquireWakeLock(){
-  if(!$("swWake").checked||!navigator.wakeLock)return;
-  try{state.wakeLock=await navigator.wakeLock.request("screen");}catch(e){}
-}
-function releaseWakeLock(){try{state.wakeLock?.release();}catch(e){}state.wakeLock=null;$("wakeTag").textContent="";}
-document.addEventListener("visibilitychange",()=>{
-  if(document.visibilityState==="visible"&&(state.connected||state.demo))acquireWakeLock();
-});
-
-/* ---------- Volcano Hybrid ---------- */
-async function volcanoInit(ctrl,stSvc){
-  const vol=state.vol={};
-  const g=(svc,u)=>svc.getCharacteristic(u);
-  vol.cur=await g(ctrl,VC.cur); vol.tgt=await g(ctrl,VC.tgt);
-  vol.heatOn=await g(ctrl,VC.heatOn); vol.heatOff=await g(ctrl,VC.heatOff);
-  vol.pumpOn=await g(ctrl,VC.pumpOn); vol.pumpOff=await g(ctrl,VC.pumpOff);
-  vol.shutoff=await g(ctrl,VC.shutoff);
-  vol.hours=await g(ctrl,VC.hours); vol.mins=await g(ctrl,VC.mins);
-  try{vol.bright=await g(ctrl,VC.bright);}catch(e){}
-  vol.act=await g(stSvc,VC.act);
-  try{vol.serial=await g(stSvc,VC.serial);}catch(e){}
-  try{vol.fw=await g(stSvc,VC.fw);}catch(e){}
-
-  state.status={targetTemp:0,boost:0,sboost:0,battery:null,shutdown:0,heaterMode:0,
-    charging:false,isCelsius:true,setpointReached:false,chgOpt:false,chgLimit:false,
-    vibration:false,permBt:false};
-
-  vol.cur.addEventListener("characteristicvaluechanged",e=>{volCur(e.target.value);render();});
-  await vol.cur.startNotifications();
-  vol.tgt.addEventListener("characteristicvaluechanged",e=>{volTgt(e.target.value);render();});
-  await vol.tgt.startNotifications();
-  vol.act.addEventListener("characteristicvaluechanged",e=>{volAct(e.target.value);render();});
-  await vol.act.startNotifications();
-
-  const rd=async c=>{if(!c)return null;try{return await c.readValue();}catch(e){return null;}};
-  volCur(await rd(vol.cur)); volTgt(await rd(vol.tgt)); volAct(await rd(vol.act));
-  volShut(await rd(vol.shutoff)); await volReadHours(rd);
-  if(vol.bright){const b=await rd(vol.bright);if(b)state.bright={brightness:b.getUint16(0,true),vibration:0};}
-  const dec=v=>{try{return new TextDecoder().decode(v.buffer).replace(/\0+$/,"")}catch(e){return "?"}};
-  const sn=await rd(vol.serial);if(sn)state.info={serial:dec(sn)};
-  const fw=await rd(vol.fw);if(fw)log("rx","Volcano firmware: "+dec(fw));
-  render();
-}
-function volCur(v){if(!v)return;const t=v.getUint16(0,true)/10;
-  state.curTemp=(t>=0&&t<=250)?t:null;state.curSrc="vol";
-  if(state.curTemp!=null&&state.status){
-    state.status.setpointReached=state.volSt.heat&&state.curTemp>=state.status.targetTemp-1;
-    pushHistory(state.curTemp,state.status.targetTemp);
-  }
-  log("rx","RX volcano curTemp "+t);}
-function volTgt(v){if(!v)return;state.status.targetTemp=Math.round(v.getUint16(0,true)/10);}
-function volAct(v){if(!v)return;const r=v.getUint16(0,true);
-  state.volSt.heat=!!(r&0x0020);state.volSt.pump=!!(r&0x2000);
-  state.status.heaterMode=state.volSt.heat?1:0;
-  log("rx","RX volcano status 0x"+r.toString(16));}
-function volShut(v){if(v)state.status.shutdown=v.getUint16(0,true);}
-async function volReadHours(rd){
-  const h=await rd(state.vol.hours),m=await rd(state.vol.mins);
-  if(h&&m)state.ext={runtime:h.getUint16(0,true)*60+m.getUint16(0,true),chargeTime:0};
-}
-function volWrite(char,bytes,label){
-  return enqueue(async()=>{
-    if(!char)return;
-    const buf=new Uint8Array(bytes);
-    log("tx","TX "+label+"  "+hex(buf.buffer));
-    await char.writeValue(buf);
-  });
-}
-function volHeat(on){state.volSt.heat=on;state.status.heaterMode=on?1:0;render();
-  volWrite(on?state.vol.heatOn:state.vol.heatOff,[0],"volcano heater "+(on?"ON":"OFF"));}
-function volPump(on){state.volSt.pump=on;render();
-  volWrite(on?state.vol.pumpOn:state.vol.pumpOff,[0],"volcano pompa "+(on?"ON":"OFF"));}
-function volPoll(tick){
-  enqueue(async()=>{try{volCur(await state.vol.cur.readValue());render();}catch(e){}});
-  if(tick%60===0)enqueue(async()=>{await volReadHours(async c=>{try{return await c.readValue()}catch(e){return null}});});
-}
 /* ---------- commands ---------- */
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 function effectiveTarget(){const s=state.status;if(!s)return 0;
   return Math.min(210,s.targetTemp+(s.heaterMode===2?s.boost:s.heaterMode===3?s.sboost:0));}
 function setTarget(c){
-  const max=state.deviceType==="volcano"?230:210;
+  const max=210;
   c=clamp(Math.round(c),40,max);optimistic("targetTemp",c);
   const t=c*10;
-  if(state.deviceType==="volcano"){
-    volWrite(state.vol.tgt,[t&0xff,(t>>8)&0xff,0,0],"setTarget "+c);return;
-  }
   writeFrame({0:1,1:2,4:t&0xff,5:(t>>8)&0xff},"setTarget "+c);}
 function setBoost(x){x=clamp(x,0,50);optimistic("boost",x);writeFrame({0:1,1:4,6:x},"setBoost "+x);}
 function setSBoost(x){x=clamp(x,0,60);optimistic("sboost",x);writeFrame({0:1,1:8,7:x},"setSBoost "+x);}
 function setHeater(m){optimistic("heaterMode",m);writeFrame({0:1,1:32,11:m},"heaterMode "+m);}
-function setUnit(f){writeFrame({0:1,1:128,14:f?1:0,15:1},"unit "+(f?"F":"C"));}
 function setChgOpt(on){writeFrame({0:1,1:128,14:on?0x08:0,15:8},"chgOpt "+on);}
 function setChgLimit(on){writeFrame({0:1,1:128,14:on?0x20:0,15:32},"chgLimit "+on);}
 function setPermBt(on){writeFrame({0:1,1:128,16:on?1:0,17:1},"permBT "+on);}
 function setVibration(on){if(state.bright)state.bright.vibration=on?1:0;writeFrame({0:6,1:1<<3,5:on?1:0},"vibration "+on,7);}
 function setBrightness(x){
-  if(state.deviceType==="volcano"){x=clamp(x,0,100);if(state.bright)state.bright.brightness=x;render();
-    volWrite(state.vol.bright,[x&0xff,(x>>8)&0xff],"brightness "+x);return;}
-  x=clamp(x,1,9);if(state.bright)state.bright.brightness=x;render();
-  writeFrame({0:6,1:1,2:x},"brightness "+x,7);writeFrame({0:6},"brightnessRead",7);}
+  x=clamp(x,1,9);
+  if(state.bright)state.bright.brightness=x; else state.bright={brightness:x,vibration:0};
+  state._brightSetAt=Date.now();
+  render();
+  writeFrame({0:6,1:1,2:x},"brightness "+x,7);
+}
 function findMy(){writeFrame({0:0x0d,1:0x01},"findMyDevice");}
 function optimistic(k,val){if(state.status){state.status[k]=val;render();}}
 
 /* ---------- render ---------- */
 const toF=c=>Math.round(c*1.8+32);
-function fmt(c){const s=state.status;return s&&!s.isCelsius?toF(c):Math.round(c);}
+function fmt(c){return Math.round(c);}
 function render(){
   const s=state.status;if(!s)return;
-  const isVol=state.deviceType==="volcano";
-  document.body.classList.toggle("volcano",isVol);
-  $("btnBoost").textContent=isVol?"AIR":"BOOST";
-  const unit=s.isCelsius?"°C":"°F";
-  $("unitLbl").textContent=unit;
+  
+  const unit="°C";
+  
   const eff=effectiveTarget();
 
   $("curTemp").textContent=state.curTemp!=null?fmt(state.curTemp):fmt(s.targetTemp);
   $("tgtTempLbl").textContent=fmt(s.targetTemp)+unit;
   $("effLbl").textContent=(s.heaterMode>=2)?(" → "+fmt(eff)+unit):"";
   $("tgtVal").textContent=fmt(s.targetTemp)+unit;
-  $("tgtSlider").max=isVol?230:210;
+  $("tgtSlider").max=false?230:210;
   $("tgtSlider").value=s.targetTemp;
   $("boostVal").textContent="+"+(s.isCelsius?s.boost:Math.round(toF(s.boost)-32))+"°";
   $("sboostVal").textContent="+"+(s.isCelsius?s.sboost:Math.round(toF(s.sboost)-32))+"°";
 
-  let ratio;const span=isVol?190:170;
+  let ratio;const span=false?190:170;
   if(state.curTemp!=null)ratio=clamp((state.curTemp-40)/span,0,1);
   else if(s.heaterMode===0)ratio=0;
   else ratio=s.setpointReached?1:0.5;
@@ -702,19 +530,19 @@ function render(){
   fe.classList.toggle("sboost",s.heaterMode===3);
 
   const hs=$("heatState");hs.className="heat-state";
-  const air=isVol&&state.volSt.pump?" + AIR":"";
+  const air="";
   if(s.heaterMode===0)hs.textContent="OFF"+air;
   else if(s.setpointReached){hs.textContent="READY"+air;hs.classList.add("ready");}
   else if(s.heaterMode===1){hs.textContent="HEATING"+air;hs.classList.add("on");}
   else if(s.heaterMode===2){hs.textContent="BOOST";hs.classList.add("boost");}
   else{hs.textContent="SUPERBOOST";hs.classList.add("sboost");}
-  if(s.setpointReached&&!state.wasReady&&s.heaterMode>0){chime();document.title="✅ READY — Venty";}
+  if(s.setpointReached&&!state.wasReady&&s.heaterMode>0){document.title="✅ READY — Venty";}
   if(!s.setpointReached)document.title="VENTY Panel";
   state.wasReady=s.setpointReached;
 
-  $("btnHeat").classList.toggle("active",isVol?state.volSt.heat:s.heaterMode===1);
-  $("btnBoost").classList.toggle("active",isVol?state.volSt.pump:s.heaterMode===2);
-  $("btnSBoost").classList.toggle("active",!isVol&&s.heaterMode===3);
+  $("btnHeat").classList.toggle("active",false?state.volSt.heat:s.heaterMode===1);
+  $("btnBoost").classList.toggle("active",false?state.volSt.pump:s.heaterMode===2);
+  $("btnSBoost").classList.toggle("active",!false&&s.heaterMode===3);
 
   if(s.battery==null){
     $("battPct").textContent="∞";
@@ -726,20 +554,20 @@ function render(){
     bf.className="batt-fill"+(s.charging?" charging":s.battery<=20?" low":s.battery<=50?" mid":"");
     $("chgState").textContent=s.charging?"in carica ⚡":"a batteria";
   }
-  $("shutdownLbl").textContent=state.deviceType==="volcano"?(s.shutdown?Math.round(s.shutdown/60)+" min":"--"):(s.heaterMode>0?s.shutdown+" s":"--");
+  $("shutdownLbl").textContent=s.heaterMode>0?s.shutdown+" s":"--";
   if(state.ext){$("runtimeLbl").textContent=(state.ext.runtime/60).toFixed(1)+" h";
     $("chargeTimeLbl").textContent=(state.ext.chargeTime/60).toFixed(1)+" h";}
   if(state.info)$("devSerial").textContent=state.info.serial;
-  if(state.bright)$("brightVal").textContent=state.deviceType==="volcano"?state.bright.brightness+"%":state.bright.brightness+" / 9";
+  if(state.bright)$("brightVal").textContent=state.bright.brightness+" / 9";
 
-  $("swFahrenheit").checked=!s.isCelsius;
+  
   $("swVibration").checked=state.bright?!!state.bright.vibration:false;
-  $("swBoostViz").checked=!!s.boostViz;
+  $("swBoostTimeout").checked=!!state.boostTimeout;
   $("swPermBt").checked=s.permBt;
   $("swChgOpt").checked=s.chgOpt;
   $("swChgLimit").checked=s.chgLimit;
 
-  renderByteTables();drawChart();
+  renderByteTables();
 }
 
 /* ---------- presets ---------- */
@@ -762,47 +590,35 @@ renderPresets();
 /* ---------- UI wiring ---------- */
 $("btnConnect").onclick=connect;
 $("btnDisconnect").onclick=disconnect;
-$("btnHeat").onclick=()=>state.deviceType==="volcano"?volHeat(!state.volSt.heat):setHeater(1);
-$("btnBoost").onclick=()=>state.deviceType==="volcano"?volPump(!state.volSt.pump):setHeater(2);
-$("btnSBoost").onclick=()=>state.deviceType!=="volcano"&&setHeater(3);
-$("btnOff").onclick=()=>{if(state.deviceType==="volcano"){volPump(false);volHeat(false);}else setHeater(0);};
+$("btnHeat").onclick=()=>setHeater(1);
+$("btnBoost").onclick=()=>setHeater(2);
+$("btnSBoost").onclick=()=>setHeater(3);
+$("btnOff").onclick=()=>setHeater(0);
 $("btnFind").onclick=findMy;
 $("tgtSlider").oninput=e=>{$("tgtVal").textContent=e.target.value+"°";};
 $("tgtSlider").onchange=e=>setTarget(+e.target.value);
 $("presets").addEventListener("click",e=>{const p=e.target.dataset?.preset;if(p)setTarget(+p);});
 document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{
   const [what,d]=b.dataset.step.split(":");const n=+d;const s=state.status;
-  if(what==="bright"){const step=state.deviceType==="volcano"?n*10:n;setBrightness((state.bright?.brightness??(state.deviceType==="volcano"?50:5))+step);return;}
+  if(what==="bright"){setBrightness((state.bright?.brightness??5)+n);return;}
   if(!s)return;
   if(what==="tgt")setTarget(s.targetTemp+n);
   else if(what==="boost")setBoost(s.boost+n);
   else if(what==="sboost")setSBoost(s.sboost+n);
 });
-$("swFahrenheit").onchange=e=>setUnit(e.target.checked);
+
 $("swVibration").onchange=e=>setVibration(e.target.checked);
-$("swBoostViz").onchange=e=>writeFrame({0:1,1:128,14:e.target.checked?0x40:0,15:0x40},"boostViz "+e.target.checked);
+$("swBoostTimeout").onchange=e=>{state.boostTimeout=e.target.checked;writeFrame({0:6,1:1<<4,6:e.target.checked?1:0},"boostTimeout "+e.target.checked,7);};
 $("swPermBt").onchange=e=>setPermBt(e.target.checked);
 $("swChgOpt").onchange=e=>setChgOpt(e.target.checked);
 $("swChgLimit").onchange=e=>setChgLimit(e.target.checked);
 $("swWake").onchange=e=>{store.set("vy_wake",e.target.checked);e.target.checked?acquireWakeLock():releaseWakeLock();};
-document.addEventListener("keydown",e=>{
-  if(e.target.tagName==="INPUT")return;
-  const s=state.status;if(!s)return;
-  if(e.key==="ArrowUp"){setTarget(s.targetTemp+1);e.preventDefault();}
-  else if(e.key==="ArrowDown"){setTarget(s.targetTemp-1);e.preventDefault();}
-  else if(e.key==="PageUp"){setTarget(s.targetTemp+5);e.preventDefault();}
-  else if(e.key==="PageDown"){setTarget(s.targetTemp-5);e.preventDefault();}
-  else if(e.key==="h"||e.key==="H")state.deviceType==="volcano"?volHeat(!state.volSt.heat):setHeater(1);
-  else if(e.key==="b"||e.key==="B")state.deviceType==="volcano"?volPump(!state.volSt.pump):setHeater(2);
-  else if(e.key==="s"||e.key==="S")state.deviceType!=="volcano"&&setHeater(3);
-  else if(e.key==="o"||e.key==="O"){if(state.deviceType==="volcano"){volPump(false);volHeat(false);}else setHeater(0);}
-});
+
 
 /* ---------- PWA ---------- */
 if("serviceWorker" in navigator && location.protocol!=="file:")
   navigator.serviceWorker.register("sw.js").catch(()=>{});
 
-$("swChime").onchange=e=>store.set("vy_chime",e.target.checked);
 </script>
 </body>
 </html>
