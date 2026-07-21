@@ -253,6 +253,7 @@ kbd{font-family:var(--mono);background:var(--card);border-radius:4px;padding:1px
       <dl class="kv">
         <dt>Nome</dt><dd id="devName">--</dd>
         <dt>Seriale</dt><dd id="devSerial">--</dd>
+        <dt>Firmware</dt><dd id="devFw">--</dd>
       </dl>
     </div>
   </div>
@@ -351,8 +352,16 @@ async function connect(){
     $("btnConnect").disabled=true;$("btnDisconnect").disabled=false;
     startPolling();
     acquireWakeLock();
-    setTimeout(()=>{if(state.boostTimeout){state.boostTimeout=false;$("swBoostTimeout").checked=false;
-      writeFrame({0:6,1:1<<4,6:0},"boostTimeout auto-off",7);}},1500);
+    // aspetta che il firmware sia noto, poi (se supportato) disattiva il ritorno automatico
+    let tries=0;
+    const forceOff=()=>{
+      if(state.boostTimeoutSupported===false){log("rx","Timeout boost non disattivabile su questo firmware");return;}
+      if(state.firmware==null && tries++<6){setTimeout(forceOff,500);return;}
+      state.boostTimeout=false;$("swBoostTimeout").checked=false;
+      writeFrame({0:6,1:1<<4,6:0},"boostTimeout auto-off",7);
+      log("rx","Timeout boost disattivato (fw "+(state.firmware||"?")+")");
+    };
+    setTimeout(forceOff,1200);
   }catch(e){
     log("err","Connect: "+e.name+" — "+e.message);
     setConn("non connesso");
@@ -398,6 +407,7 @@ function handleFrame(v){
   log("rx","RX 0x"+cmd.toString(16).padStart(2,"0")+"  "+hex(v.buffer));
   trackFrame(cmd,new Uint8Array(v.buffer.slice(0)));
   if(cmd===0x01)parseStatus(v);
+  else if(cmd===0x02)parseFirmware(v);
   else if(cmd===0x04)parseExtended(v);
   else if(cmd===0x05)parseInfo(v);
   else if(cmd===0x06)parseBright(v);
@@ -426,8 +436,18 @@ function parseStatus(v){
 function parseExtended(v){state.ext={
   runtime:v.getUint8(1)+(v.getUint8(2)<<8)+(v.getUint8(3)<<16),
   chargeTime:v.getUint8(4)+(v.getUint8(5)<<8)+(v.getUint8(6)<<16)};}
-function parseInfo(v){try{const d=new TextDecoder();
-  state.info={serial:d.decode(v.buffer.slice(15,17))+d.decode(v.buffer.slice(9,15))};}catch(e){}}
+function parseFirmware(v){
+  try{
+    const s=new TextDecoder("utf-8").decode(v.buffer.slice(2,8)).replace(/\0+$/,"").trim();
+    state.firmware=s;
+    // regex identica all'app ufficiale: /(\d+)\.?(\d+)$/ — il gruppo 2 è il valore
+    // che S&B confronta (firmwareValueArrayConnectedQvap[2]). Per "V01.11" -> 11.
+    const m=s.match(/(\d+)\.?(\d+)$/);
+    state.fwMajor=m?parseInt(m[2],10):null;
+    state.boostTimeoutSupported = state.fwMajor!=null ? state.fwMajor>=8 : true;
+  }catch(e){}
+}
+function parseInfo(v){try{const d=new TextDecoder();  state.info={serial:d.decode(v.buffer.slice(15,17))+d.decode(v.buffer.slice(9,15))};}catch(e){}}
 function parseBright(v){
   const b=v.getUint8(2),vib=v.getUint8(5);
   if(v.byteLength>6)state.boostTimeout=v.getUint8(6)>0;
@@ -563,6 +583,14 @@ function render(){
   
   $("swVibration").checked=state.bright?!!state.bright.vibration:false;
   $("swBoostTimeout").checked=!!state.boostTimeout;
+  if(state.firmware)$("devFw").textContent=state.firmware;
+  {const sup=state.boostTimeoutSupported!==false;
+   $("swBoostTimeout").disabled=!sup;
+   const row=$("swBoostTimeout").closest(".row");
+   if(row){const h=row.querySelector(".hint");
+     if(h)h.textContent=sup?"se OFF, boost e superboost restano finché non li cambi tu"
+       :"il tuo firmware ("+(state.firmware||"?")+") non permette di disattivarlo via Bluetooth — è gestito dal Venty stesso";
+     row.style.opacity=sup?"1":".55";}}
   $("swPermBt").checked=s.permBt;
   $("swChgOpt").checked=s.chgOpt;
   $("swChgLimit").checked=s.chgLimit;
@@ -608,7 +636,7 @@ document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{
 });
 
 $("swVibration").onchange=e=>setVibration(e.target.checked);
-$("swBoostTimeout").onchange=e=>{state.boostTimeout=e.target.checked;writeFrame({0:6,1:1<<4,6:e.target.checked?1:0},"boostTimeout "+e.target.checked,7);};
+$("swBoostTimeout").onchange=e=>{if(state.boostTimeoutSupported===false){e.target.checked=false;return;}state.boostTimeout=e.target.checked;writeFrame({0:6,1:1<<4,6:e.target.checked?1:0},"boostTimeout "+e.target.checked,7);};
 $("swPermBt").onchange=e=>setPermBt(e.target.checked);
 $("swChgOpt").onchange=e=>setChgOpt(e.target.checked);
 $("swChgLimit").onchange=e=>setChgLimit(e.target.checked);
